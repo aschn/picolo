@@ -2,7 +2,8 @@
 @package shapes
 @module classifiers
 @author Anna Schneider
-Contains classes for Classifier, SVMClassifier, and GMMClassifier
+Contains classes for Classifier, SVMClassifier, GMMClassifier,
+    and factory method classifier_factory
 """
 # import from standard library
 from exceptions import ValueError
@@ -10,9 +11,12 @@ from exceptions import ValueError
 # import external packages
 import numpy as np
 from scipy import stats
-#from sklearn import svm, mixture
 
 class Classifier:
+    """ Base class for classifiers. Implement _match to derive a useful
+        classifier.
+        
+    """
     def __init__(self, cutoff=0):
         """ Constuctor
         
@@ -86,6 +90,7 @@ class Classifier:
         return 0
 
 class SVMClassifier(Classifier):        
+    """ Classifer that implements a support vector machine. """
     def _match(self, class_data, test_arr):
         """ Calculate the match of the test features to the class
             representative, a float >=0.
@@ -101,19 +106,23 @@ class SVMClassifier(Classifier):
 
         """        
         # get vector of vals for class
-        class_arr = np.asarray(class_data.vals)
+        class_arr = np.asarray(class_data.get_vals())
         
         # test that class and test are comparable
         if class_arr.shape != test_arr.shape:
             raise ValueError('class and test feature vectors must have same length')
 
         # calculate
-        match_val = np.dot(class_arr, test_arr) + class_data.intercept
+        match_val = np.dot(class_arr, test_arr) + class_data.get('intercept')
         
         # return
         return match_val
             
 class GMMClassifier(Classifier):
+    """ Classifier that implements a Gaussian mixture model with a maximum
+        likelihood decision rule.
+        
+    """
     def _match(self, class_data, test_arr):
         """ Calculate the match of the test features to the class
             representative, a float between 0 and 1.
@@ -128,8 +137,8 @@ class GMMClassifier(Classifier):
 
         """
         # get vector of means and sds for class
-        class_means = np.asarray(class_data.vals)
-        class_sds = np.asarray(class_data.sds)
+        class_means = np.asarray(class_data.get_vals())
+        class_sds = np.asarray(class_data.get('sds'))
         
         # test that class and test are comparable
         if class_means.shape != test_arr.shape:
@@ -145,4 +154,25 @@ class GMMClassifier(Classifier):
         # return
         return prob                       
        
+       
+def classifier_factory(classifier_type, cutoff=None):
+    """ Function to create a classifier. Valid types must contain the substrings
+        'GMM' (for Gaussian Mixture Model) or
+        'SVM' (for Support Vector Machine); case insensitive.
+    
+    @param classifier_type String specifying a valid classifier type
+    
+    @param cutoff Number for rejection cutoff; valid matches must have a
+        score above this value
         
+    @retval Classifier object
+    
+    """
+    lower_case_str = classifier_type.lower()
+    
+    if 'gmm' in lower_case_str:
+        return GMMClassifier(cutoff)
+    elif 'svm' in lower_case_str:
+        return SVMClassifier(cutoff)
+    else:
+        raise ValueError('invalid classifier type %s' % classifier_type)

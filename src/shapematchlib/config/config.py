@@ -1,18 +1,19 @@
 """
+@package config
 @module config
 @author Anna Schneider
-Contains classes for Config, NeighborList, Coord
+Contains class for Config
 """
 
 # import from standard library
-import sys
 import csv
 import math
 
 # import external packages
 import numpy as np
 
-####################################################
+# import modules in this package
+from coord import Coord
 
 class Config:
     """ Class for handling and analyzing 2D particle coordinates.
@@ -86,11 +87,11 @@ class Config:
         try:
             assert(xmin >= 0 and ymin >= 0 and xmax <= self.Lx and ymax <= self.Ly)
         except AssertionError:
-            print "***"
-            print "ERROR: box size is bad"
-            print "min not nonnegative? xmin = %f, ymin = %f" % (xmin, ymin)
-            print "or max too big? xmax = %f for Lx = %f, ymax = %f for Ly = %f" % (xmax, self.Lx, ymax, self.Ly)
-            sys.exit()
+            msg = "bad box size: (xmin, xmax, ymin, ymax, Lx, Ly) = "
+            msg += "(%0.1f, %0.1f, %0.1f, %0.1f, %0.1f, %0.1f)" % (xmin, xmax,
+                                                                   ymin, ymax,
+                                                                   self.Lx, self.Ly)
+            raise ValueError(msg)
 
         # set up periodically replicated images if using PBC
         if self.doPBC:
@@ -174,7 +175,7 @@ class Config:
                         yimages[image_ip] = self.y[ip] + yimage * self.Ly
         return ximages, yimages
 
-    def _is_tri_in_image(self, p0, p1, p2):
+    def is_tri_in_image(self, p0, p1, p2):
         """ Determine if three vertices form a triangle that is in the
             'minimum image'.
         
@@ -212,7 +213,7 @@ class Config:
         else:
             return False
 
-    def _interior_particles(self, mask, cutoff_dist = None):
+    def interior_particles(self, mask, cutoff_dist = None):
         """ Compute number of particles at least cutoff_dist away from edge.
 
         @param self The object pointer
@@ -449,49 +450,4 @@ class Config:
             outfile.writerow([ bins[ibin]+0.5*binwidth, prob_norm[ibin],
                                counts[ibin] ])
 
-
-####################################################
-
-class Coord:
-    """ Cartesian and polar coordinates for given (x,y) pair.
-        Theta is in range (-pi, pi).
-
-    Attributes:
-        
-    @var x Float for x coord (Cartesian)
-    
-    @var y Float for y coord (Cartesian)
-    
-    @var r Float for r coord (polar)
-    
-    @var theta Float for theta coord (polar)
-    
-    """
-    def __init__(self, dx, dy):
-        """ Constructor. Calculates (r, theta) given (x,y).
-        
-        @param dx Float for x coord
-        
-        @param dy Float for y coord
-        
-        """
-        self.x = float(dx)
-        self.y = float(dy)
-        self.r = math.sqrt(self.x*self.x + self.y*self.y)
-        if self.r > 0:
-            c = dx / self.r
-            s = dy / self.r
-            self.theta = math.atan2(s,c)
-        else:
-            self.theta = 0.0
-            
-    def __repr__(self):
-        """ Returns a printable string 
-        """
-        retstr = "(x,y) = (%2.1f, %2.1f); " % (self.x,self.y)
-        degs = math.degrees(np.remainder(self.theta, 2.0*math.pi))
-        retstr += "(r,theta) = (%2.1f, %3f)" % (self.r,degs)
-        return retstr
-        
-####################################################
 

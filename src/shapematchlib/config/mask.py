@@ -1,7 +1,8 @@
 """
-@module config
+@package config
+@module mask
 @author Anna Schneider
-Contains classes for Config, NeighborList, Coord
+Contains class for Mask
 """
 
 # import from standard library
@@ -18,13 +19,24 @@ class Mask:
     """Class that uses an image to mask coordinates
         and define boundary conditions.
 
-    Invalid regions are defined as pixels with 0 or negative values. Pixel resolution must be equal in x and y dim. Assumes no periodic boundary conditions.
+    Invalid regions are defined as pixels with 0 or negative values.
+    Pixel resolution must be equal in x and y dim
+    Assumes no periodic boundary conditions.
 
     Attributes: 
+        
     @var mask Ndarray of bools, True inside valid regions, False outside
-    @var px2nm Float for conversion factor of pixels to nm
-    @var nm2px Float for conversion factor of nm to pixels
-    @var edge_masks Dict with keys = distances to edge in nm, vals = Ndarray of bools (True farther from edge than key, False closer to edge or outside mask)
+    
+    @var cf_px2nm Float for conversion factor of pixels to nm
+    
+    @var cf_nm2px Float for conversion factor of nm to pixels
+                                     
+    @var boundary_kdtree scipy.spatial.KDTree of points on boundary
+    
+    @var px_to_edge 
+    
+    @var extent Tuple of numbers, (xmin, xmax, ymin, ymax)
+                                 
     """
 
     def __init__(self, imfile, Lx, Ly):
@@ -82,7 +94,7 @@ class Mask:
 ##########################                
 
     def _test(self, Lx, Ly):
-        """ Test class methods.
+        """ Test class cf_methods.
         
         @param self The object pointer
         
@@ -425,9 +437,6 @@ class Mask:
 
         if cutoff_dist:
             # count valid pixels in the correct edge mask
-          #  if cutoff_dist not in self.edge_masks:
-          #      self.edge_masks[cutoff_dist] = self.getEdgeMask(cutoff_dist)
-          #  n = np.count_nonzero(self.edge_masks[cutoff_dist])
             n = np.count_nonzero(self.px_to_edge > cutoff_dist)
         else:
             # count valid pixels in full mask
