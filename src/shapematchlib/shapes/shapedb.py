@@ -11,8 +11,8 @@ import xml.dom.minidom as dom
 import xml.etree.ElementTree as ET
 
 # import modules in this package
-from shapes import UnitCellShape, ZernikeShape, FourierShape
-from classifiers import SVMClassifier, GMMClassifier
+from shapes import shape_factory_from_values
+from classifiers import classifier_factory
 
 class ShapeDB:    
     """ Class that provides an interface to the shape prototypes
@@ -34,17 +34,11 @@ class ShapeDB:
         """
         # initialize shape data info to default/null values
         self._data = dict()
-        self._shape_constructors = {'Fourier': FourierShape,
-                                   'Zernike': ZernikeShape,
-                                   'UnitCell': UnitCellShape}
-        self._shape_constructor = None
         self._shape_names = []
         self.null_shape_name = ''
 
         # initialize classifier info to default/null values
         self._classifier = None
-        self._classifier_constructors = {'SVM': SVMClassifier,
-                                        'GMM': GMMClassifier}
         
         # read from file if given
         if '.xml' in fname:
@@ -92,11 +86,10 @@ class ShapeDB:
         # set up classifier with cutoff
         classifier_type = root.get('classifier-type')
         cutoff = root.get('cutoff', default=0)
-        self._classifier = self._classifier_constructors[classifier_type](cutoff)            
+        self._classifier = classifier_factory(classifier_type, cutoff)
             
         # set up shape type
         shape_type = root.get('shape-type')
-        self._shape_constructor = self._shape_constructors[shape_type]
 
         # loop over shapes in file
         for shape_elt in root.findall('./class-shape'):
@@ -122,7 +115,8 @@ class ShapeDB:
 
                     
             # create and add shape
-            shape = self._shape_constructor(variables, vals, **optdata)
+            shape = shape_factory_from_values(shape_type, variables,
+                                              vals, optdata)
             self.add(name, shape)
 
     def _parse_component_name(self, shape_type, name_string):
@@ -150,9 +144,7 @@ class ShapeDB:
             return tuple(int(i) for i in name_string.strip('()').split(',')) 
             
         else:
-            msg = "Got invalid shape type %s." % shape_type
-            msg += "Valid types are" + ", ".join(self._shape_constructors.keys())
-            raise ValueError(msg)
+            raise ValueError("invalid shape type %s." % shape_type)
         
     def update_XML(self, xmlf):
         """ Update an xml file on disc with the current state of the database.
