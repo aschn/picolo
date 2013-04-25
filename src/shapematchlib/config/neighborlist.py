@@ -1,8 +1,8 @@
 """
 @package config
-@module neighborlist
 @author Anna Schneider
-Contains classes for NeighborList, DistNeighbors, DelaunayNeighbors
+@version 0.1
+@brief Contains classes for NeighborList, DistNeighbors, and DelaunayNeighbors
 """
 
 # import from standard library
@@ -19,18 +19,12 @@ class NeighborList:
         Provides a dict-like interface.
         For a useful implementation, override compute(config) method,
             and possibly _check(config, mask) and apply_mask(config, mask)
-        
-    Attributes:
-        
-    @var _neighbor_dict dict with key = particle id,
-        val = set of neighbor particle ids
-        
-    @var is_masked Bool for whether or not mask has been applied
     
-    @var _ids Particle ids that have a set of neighbors (may be empty)
-        
     """
-    
+    ##
+    # @var is_masked 
+    # @brief Bool for whether or not mask has been applied    
+        
     def __init__(self, config, mask=None):    
         """ Constructor.
         
@@ -41,6 +35,8 @@ class NeighborList:
         @param mask Mask object, default is None
         
         """
+        self.is_masked = False
+        
         self._build(config, mask)
     
     def _build(self, config, mask):
@@ -58,33 +54,33 @@ class NeighborList:
         if mask is not None:
             self.apply_mask(config, mask)
             self.is_masked = True
-        else:
-            self.is_masked = False
+
+        # check
+        self._clean()
         self._check(config, mask)
         self._ids = self._neighbor_dict.keys()
 
     def __getitem__(self, i):
-        """ Like dict.__getitem__ 
+        """ Returns a (possibly empty) set of neighbor ids for particle id i.
         """
         if i in self._neighbor_dict:
             return self._neighbor_dict[i] 
         else:
-            return []
+            return set()
+
     def __len__(self):
-        """ Like dict.__repr__ 
+        """ Returns the number of particles with a nonzero number of neighbors.
         """
         return len(self._neighbor_dict)  
-    def __repr__(self):
-        """ Like dict.__repr__ 
-        """
-        return repr(self._neighbor_dict)
+                
     def iteritems(self):
-        """ Like dict.iteritems
+        """ Iterate through (particle id, set(neighbor ids)) pairs.
         """        
         return self._neighbor_dict.iteritems()
         
     def neighbors_of(self, i):
-        """ Alias for __getitem__
+        """ Returns a (possibly empty) set of neighbor ids for particle id i.
+            Alias for __getitem__
         """
         return self.__getitem__(i)
         
@@ -101,6 +97,16 @@ class NeighborList:
             
         """
         pass
+    
+    def _clean(self):
+        """ Removes particles with zero neighbors.                    
+        """
+        ips = self._neighbor_dict.keys()
+        for ip in ips:
+            nnbhrs = len(self.neighbors_of(ip))
+            if nnbhrs == 0:
+                del self._neighbor_dict[ip]
+    
     def _check(self, config, mask):
         """ Checks the connections.
             Should be implemented in some derived classes.
@@ -108,12 +114,10 @@ class NeighborList:
         @param self The object pointer
         
         @param config Config object
-        
-        @retval dict with key = particle id,
-            val = set of neighbor particle ids
-            
+                    
         """
         pass
+    
     def apply_mask(self, config, mask):
         """ Remove links that cross invalid regions of the mask.
             May need to be overridden in some derived classes.
@@ -190,7 +194,7 @@ class NeighborList:
         for ipv, ip in enumerate(inds):
             # start weighted list
             if ownweight == 'half':
-                ownweight = len(self.neighbors_of(ip)/2
+                ownweight = len(self.neighbors_of(ip))/2
             elif ownweight == 'n-1':
                 ownweight = len(self.neighbors_of(ip)) - 1
             else:
@@ -232,11 +236,19 @@ class NeighborList:
         return newvals
         
 class DistNeighbors(NeighborList):
+    """ NeighborList with connections defined using a distance cutoff. """
 
     def __init__(self, config, dist = 0, mask = None):
         """ Constructor.
         
         @param self The object pointer     
+        
+        @param config Config object
+        
+        @param dist Number for cutoff distance, default is 0
+        
+        @param mask Mask object, default is None
+        
         """
         # initialize
         self._kdtree = spatial.KDTree(zip(config.x, config.y)) 
@@ -244,6 +256,16 @@ class DistNeighbors(NeighborList):
         self._build(config, mask)
    
     def compute(self, config=None):
+        """ Figures out connections between particles using the cutoff distance.
+        
+        @param self The object pointer
+        
+        @param config Config object
+        
+        @retval dict with key = particle id,
+            val = set of neighbor particle ids
+            
+        """
         # make neighbor list with cutoff
         neighbor_list = self._kdtree.query_ball_tree(self._kdtree, self._r)
 
@@ -256,18 +278,30 @@ class DistNeighbors(NeighborList):
             # add to dict
             self._neighbor_dict[ip] = neighbors
                                       
-    def neighbors_within(self, dist, ip):
+    def neighbors_within(self, dist, particle_id):
+        """ Finds neighbors of particle particle_id within distance dist.
+        
+        @param self The object pointer
+        
+        @param dist Number for distance cutoff
+        
+        @param particle_id Int for particle id
+        
+        @retval Set of particle ids
+        
+        """
         # set up with correct distance
         if dist != self._r:
             self._r = dist
             self.compute()
             
         # return 
-        return self.neighbors_of(ip)
+        return self.neighbors_of(particle_id)
 
 ####################################################
 
 class DelaunayNeighbors(NeighborList):
+    """ NeighborList with connections defined using the Delaunay triangulation. """
     
     def __init__(self, config, mask = None):
         """ Constructor.
@@ -352,7 +386,7 @@ class DelaunayNeighbors(NeighborList):
         except AssertionError:
             print "***"
             print "ERROR in number of particles with neighbors"
-            print "got %d particles with neighbors, should have %d" % (len(self.neighbor_dict.keys()), config.N)
+            print "got %d particles with neighbors, should have %d" % (len(self._neighbor_dict.keys()), config.N)
             sys.exit()
                    
         # assemble histogram of neighbors
@@ -360,10 +394,7 @@ class DelaunayNeighbors(NeighborList):
         counts = dict()
         for ip in range(config.N):
             nnbhrs = len(self.neighbors_of(ip))
-            if nnbhrs == 0 and mask is not None:
-                print "particle %d has 0 neighbors, remove it from neighbor list" % ip
-                del self._neighbor_dict[ip]
-            elif nnbhrs in counts:
+            if nnbhrs in counts:
                 counts[nnbhrs] += 1
             else:
                 counts[nnbhrs] = 1

@@ -1,8 +1,8 @@
 """
 @package config
-@module config
 @author Anna Schneider
-Contains class for Config
+@version 0.1
+@brief Contains class for Config
 """
 
 # import from standard library
@@ -17,29 +17,35 @@ from coord import Coord
 
 class Config:
     """ Class for handling and analyzing 2D particle coordinates.
-    
-    Attributes:
-        
-    @var x Ndarray of floats for x coords (in nm)
-    
-    @var y Ndarray of floats for y coords (in nm)
-    
-    @var N Int for number of points
-    
-    @var indices range(self.N)
-    
-    @var doPBC Bool for  whether to assume periodic boundary conditions
-    
-    @var Lx Float for box width
-    
-    @var Ly Float for box height
-    
-    @var ximages Ndarray of all images of particle x coordinates
-        
-    @var yimages Ndarray of all images of particle y coordinates
-    
     """
-    
+    ##   
+    # @var x 
+    # @brief Ndarray of floats for x coords (in nm)
+    #
+    # @var y 
+    # @brief Ndarray of floats for y coords (in nm)
+    #
+    # @var N 
+    # @brief Int for number of points
+    #
+    # @var indices 
+    # @brief range(self.N)
+    #
+    # @var doPBC 
+    # @brief Bool for  whether to assume periodic boundary conditions
+    #
+    # @var Lx 
+    # @brief Float for box width
+    #
+    # @var Ly 
+    # @brief Float for box height
+    #
+    # @var ximages 
+    # @brief Ndarray of all images of particle x coordinates
+    #    
+    # @var yimages 
+    # @brief Ndarray of all images of particle y coordinates
+        
     def __init__(self, xc, yc, pbc = False, lx = 0, ly = 0):
         """ Initialize box around coordinates,
             with or without periodic boundaries.
@@ -56,9 +62,7 @@ class Config:
         @param lx Float for box width, default 0 (must set if pbc=True)
         
         @param ly Float for box height, default 0 (must set if pbc=True)
-        
-        @param ximages         
-        
+                
         """
         # set coords        
         assert(len(xc) == len(yc))
@@ -234,10 +238,6 @@ class Config:
         else:
             return self.N
 
-##########################
-# PUBLIC UTILITY METHODS
-##########################                
-
     def coord_at(self, ip):
         """ Get Coord object for a particle.
         
@@ -275,10 +275,6 @@ class Config:
             return float(self.N) / self.Lx / self.Ly
 
 
-##########################
-# ANALYSIS METHODS
-##########################                
-
     def radial_distribution(self, fname, cutoff_dist = 60.0,
                             binwidth = 1.0, mask = None, ips = None):
         """ Compute g(r) and print to file (space-delimited csv).
@@ -301,6 +297,8 @@ class Config:
         
         @param mask Mask object
         
+        @param ips List of indices to use; default is self.indices
+
         """
         # set up outfile
         outfile = csv.writer(open(fname, 'wb'), delimiter=' ')
@@ -386,6 +384,8 @@ class Config:
         @param binwidth Number for histogram bin size, in nm
         
         @param mask Mask object
+        
+        @param ips List of indices to use; default is self.indices
         
         """
         # set up outfile

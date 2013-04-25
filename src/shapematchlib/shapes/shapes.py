@@ -1,8 +1,8 @@
 """
 @package shapes
-@module shapes
 @author Anna Schneider
-Contains classes for Shape, UnitCellShape, FourierShape, ZernikeShape,
+@version 0.1
+@brief Contains classes for Shape, FourierShape, ZernikeShape, UnitCellShape,
     and factory methods shape_factory_from_values and shape_factory_from_coords
 """
 
@@ -17,7 +17,7 @@ from scipy import optimize
 import matplotlib.pyplot as plt
 
 class Shape:
-    """ Class that defines the interface for a shape descriptor.
+    """ Base class for shape descriptors.
         Stores an ordered list of named variables that specify the 
             components of the shape descriptor vector,
             and the value associated with each variable.
@@ -160,7 +160,7 @@ class Shape:
         """
         self._params[attr_name] = val
             
-    def build_from_coords(self):
+    def build_from_coords(self, neighbor_coords):
         """ Implement this method to provide class-specific functionality
             for calculating the shape descriptor variables from a set of
             points.
@@ -224,7 +224,7 @@ class ZernikeShape(Shape):
             for nm in nms:
                 self.put_component(nm, 0)
                
-    def build_from_coords(self, neighbor_coords, own_coord):    
+    def build_from_coords(self, neighbor_coords):    
         """ Update with Zernike rotation invariant moments corresponding to
             positions of neighboring points about reference position.
             
@@ -232,7 +232,7 @@ class ZernikeShape(Shape):
         
         @param neighbor_coords List of Coord objects for neighboring points,
             with the origin at the reference position
-                
+                            
         """ 
         # notation follows "Invariant Image Recognition by Zernike Moments"
         # by Khotanzad and Hong, 1990 IEEE.
@@ -339,6 +339,9 @@ class UnitCellShape(Shape):
         
         @param neighbor_coords List of Coord objects for neighboring points,
             with the origin at the reference position
+            
+        @param do_plot Bool for whether or not to show a diagnostic plot
+            interactively
                 
         """ 
         # set up storage

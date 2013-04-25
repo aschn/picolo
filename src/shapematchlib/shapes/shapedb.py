@@ -1,8 +1,8 @@
 """
 @package shapes
-@module shapes
 @author Anna Schneider
-Contains class for ShapeDB
+@version 0.1
+@brief Contains class for ShapeDB
 """
 
 # import from standard library
@@ -15,8 +15,8 @@ from shapes import shape_factory_from_values
 from classifiers import classifier_factory
 
 class ShapeDB:    
-    """ Class that provides an interface to the shape prototypes
-            and classifier.
+    """ Class that provides an interface to the Shape prototypes
+            and Classifier.
         Current implementation stores the data on disc as a xml file
             and in memory as a dict.
         Supported Shape types are ['Fourier', 'Zernike', 'UnitCell'].

@@ -1,8 +1,8 @@
 """
 @package shapematchlib
-@module shapematcher
 @author Anna Schneider
-Contains classes for ShapeMatcher and ShapeMatchWriter
+@version 0.1
+@brief Contains classes for ShapeMatcher and ShapeMatchWriter
 """
 
 # import from standard library
@@ -19,32 +19,31 @@ import matplotlib.colors as colors
 from config import Config, DistNeighbors, DelaunayNeighbors, Mask
 from shapes import ShapeDB, shape_factory_from_coords
 
-####################################################
-
 class ShapeMatcher():
     """Class that computes and classifies 2D crystal types.
-
-    Attributes:
-        
-    @var name String for self-identification
-    
-    @var mode String for the shape type
-    
-    @var config Config object containing coordinates
-    
-    @var training_ids List of ints for training coords
-    
-    @var mask Mask object containing image mask
-    
-    @var shapes ShapeDB object containing target shapes to match against
-    
-    @var features Dict containing features for each data point
-        (key = shapename, val = List of features)
     """
-
-##########################
-# CONSTRUCTOR METHODS
-##########################
+    ##
+    # @var name
+    # @brief String for self-identification
+    #
+    # @var mode
+    # @brief String for the shape type
+    #
+    # @var config
+    # @brief Config object containing coordinates
+    #
+    # @var training_ids
+    # @brief List of ints for training coords
+    #
+    # @var mask
+    # @brief Mask object containing image mask
+    #
+    # @var shapes
+    # @brief ShapeDB object containing target shapes to match against
+    #
+    # @var features
+    # @brief Dict containing features for each data point
+    #    (key = shapename, val = List of features)
 
     def __init__(self, fname, xcol=0, ycol=1, delim=' ',
                  tagcol=None, goodtag=None, trainingcol=None,
@@ -254,11 +253,7 @@ class ShapeMatcher():
                     
                 # store features
                 self.features[sname].append(particle_features)
-                
-##########################
-# SHAPE FEATURE METHODS
-##########################                
-                
+                                
     def get_features(self, shapename, particle_id):
         """ Get features for a particle using params from a shape.
         
@@ -293,10 +288,6 @@ class ShapeMatcher():
             # return
             return shape
     
-##########################
-# SHAPE CLASSIFICATION METHODS
-##########################                
-                
     def get_raw_match(self, shapename, particle_id = 'all'):
         """ Get match for particle(s) to a shape.
         
@@ -343,10 +334,14 @@ class ShapeMatcher():
                        particle_id = 'all',
                        do_filter = True,
                        do_smoother = True):
-        """ Get best match for particle(s) to shapename(s) using a pipeline:
+        """ Get best match for particle(s) to shapename(s) using a pipeline.
+            
             (1) Get raw match.
+            
             (2) Get the best of the raw matches, if shapename is 'all'.
+            
             (3) Apply an optional rejection cutoff filter.
+            
             (4) Apply an optional smoother via a spatial k-nearest-neighbor
                 filter (median if input is float, majority if input is bool).
                 
@@ -445,7 +440,7 @@ class ShapeMatcher():
         
         @param self The object pointer
         
-        @param ids String 'all' to classify all particles,
+        @param particle_id String 'all' to classify all particles,
             or int to classify 1 particle
             
         @retval list of ints in that are categorical labels for each particle
@@ -463,11 +458,7 @@ class ShapeMatcher():
         
         # return
         return class_labels
-        
-##########################
-# ANALYSIS METHODS
-##########################                
-        
+                
     def fraction_matched(self, shapename = None):
         """ Calculates the fraction of particles that match a particular
             shape, or any shape if shapename not provided.
@@ -595,6 +586,10 @@ class ShapeMatchWriter:
     """ Class that handles plotting and output for ShapeMatcher.
         Uses matplotlib for plotting.
     """
+    ##
+    # @var sm
+    # @brief ShapeMatcher object to output info from
+    
     def __init__(self, sm):
         """ Constructor.
 

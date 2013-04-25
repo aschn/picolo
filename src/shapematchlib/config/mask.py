@@ -1,8 +1,8 @@
 """
 @package config
-@module mask
 @author Anna Schneider
-Contains class for Mask
+@version 0.1
+@brief Contains classes for Mask
 """
 
 # import from standard library
@@ -23,22 +23,25 @@ class Mask:
     Pixel resolution must be equal in x and y dim
     Assumes no periodic boundary conditions.
 
-    Attributes: 
-        
-    @var mask Ndarray of bools, True inside valid regions, False outside
-    
-    @var cf_px2nm Float for conversion factor of pixels to nm
-    
-    @var cf_nm2px Float for conversion factor of nm to pixels
-                                     
-    @var boundary_kdtree scipy.spatial.KDTree of points on boundary
-    
-    @var px_to_edge 
-    
-    @var extent Tuple of numbers, (xmin, xmax, ymin, ymax)
-                                 
     """
-
+    ##    
+    # @var mask 
+    # @brief ndarray of bools, True inside valid regions, False outside
+    #
+    # @var cf_px2nm 
+    # @brief Float for conversion factor of pixels to nm
+    #
+    # @var cf_nm2px 
+    # @brief Float for conversion factor of nm to pixels
+    #                                 
+    # @var boundary_kdtree 
+    # @brief scipy.spatial.KDTree of points on boundary
+    #
+    # @var px_to_edge 
+    #
+    # @var extent 
+    # @brief Tuple of numbers, (xmin, xmax, ymin, ymax)
+                                 
     def __init__(self, imfile, Lx, Ly):
         """public: initialize mask
         
@@ -88,10 +91,6 @@ class Mask:
         else:
             # don't set up edge masks yet
             self.px_to_edge = None
-
-##########################
-# PRIVATE UTILITY METHODS
-##########################                
 
     def _test(self, Lx, Ly):
         """ Test class cf_methods.
@@ -280,14 +279,12 @@ class Mask:
         # set up kd tree
         self.boundary_kdtree = spatial.KDTree(np.asarray(boundary_pairs))
 
-##########################
-# PUBLIC UTILITY METHODS
-##########################                
-
     def write_edges(self, outfile=None):
         """ Write to file the distance from each pixel to the closest edge.
         
         @param self The object pointer
+        
+        @param outfile String with path to output file; default is self.edgefile
         
         """
         # set edge info 
