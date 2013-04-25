@@ -1,9 +1,10 @@
 """
 @package config
-@module coord
 @author Anna Schneider
-Contains class for Coord
+@version 0.1
+@brief Contains class for Coord
 """
+
 # import from standard library
 import math
 
@@ -13,18 +14,20 @@ import numpy as np
 class Coord:
     """ Cartesian and polar coordinates for given (x,y) pair.
         Theta is in range (-pi, pi).
-
-    Attributes:
-        
-    @var x Float for x coord (Cartesian)
+    """    
+    ##
+    # @var x
+    # @brief Float for x coord (Cartesian)
+    #
+    # @var y 
+    # @brief Float for y coord (Cartesian)
+    #
+    # @var r 
+    # @brief Float for r coord (polar)
+    #
+    # @var theta 
+    # @brief Float for theta coord (polar)
     
-    @var y Float for y coord (Cartesian)
-    
-    @var r Float for r coord (polar)
-    
-    @var theta Float for theta coord (polar)
-    
-    """
     def __init__(self, dx, dy):
         """ Constructor. Calculates (r, theta) given (x,y).
         

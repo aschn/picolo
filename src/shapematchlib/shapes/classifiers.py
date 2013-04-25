@@ -1,10 +1,11 @@
 """
 @package shapes
-@module classifiers
 @author Anna Schneider
-Contains classes for Classifier, SVMClassifier, GMMClassifier,
+@version 0.1
+@brief Contains classes for Classifier, SVMClassifier, GMMClassifier,
     and factory method classifier_factory
 """
+
 # import from standard library
 from exceptions import ValueError
 
@@ -90,7 +91,7 @@ class Classifier:
         return 0
 
 class SVMClassifier(Classifier):        
-    """ Classifer that implements a support vector machine. """
+    """ Classifier that implements a support vector machine. """
     def _match(self, class_data, test_arr):
         """ Calculate the match of the test features to the class
             representative, a float >=0.
