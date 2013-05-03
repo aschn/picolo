@@ -59,9 +59,9 @@ class Config:
         @param pbc Bool for whether to assume periodic boundary conditions,
             default False
             
-        @param lx Float for box width, default 0 (must set if pbc=True)
+        @param lx Float for box width, default max(xc) (must set if pbc=True)
         
-        @param ly Float for box height, default 0 (must set if pbc=True)
+        @param ly Float for box height, default max(yc) (must set if pbc=True)
                 
         """
         # set coords        
@@ -135,19 +135,32 @@ class Config:
     
         # if PBC, loop over x and y
         if self.doPBC:
-            for (dc, c1, c2, Lc) in [ (dx, x1, x2, self.Lx) , (dy, y1, y2, self.Ly)]:
-                
-                # reset difference between coords
-                halfL = Lc * 0.5
-                if dc > halfL:
-                    dc -= Lc
-                elif dc > -halfL:
-                    continue
-                else:
-                    dc += Lc
+            dx = self._PBC_coord(dx, self.Lx)
+            dy = self._PBC_coord(dy, self.Ly)
 
         # return Euclidian distance
         return math.sqrt(dx*dx + dy*dy)
+        
+    def _PBC_coord(self, dc, Lc):
+        """ Reduce distance to minimum-image-convention distance.
+        
+        @param self The object pointer
+        
+        @param dc Number for distance along a coord
+        
+        @param Lc Number for box side length along a coord
+        
+        @retval Number for minimum distance using PBC
+        
+        """
+        halfL = Lc * 0.5
+        while True:
+            if dc > halfL:
+                dc -= Lc
+            elif dc > -halfL:
+                return dc
+            else:
+                dc += Lc            
         
     def _get_periodic_images(self):
         """ Set up periodic images of particle coordinates.

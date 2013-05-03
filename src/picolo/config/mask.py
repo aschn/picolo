@@ -77,9 +77,6 @@ class Mask:
         # set distance to pixel conversions
         self._set_units(Lx, Ly)
 
-        # test
-        self._test(Lx, Ly)
-
         # look for file with precomputed edge info
         self.edgefile = os.path.splitext(imfile)[0] + "_pxToEdge.txt"
 
@@ -91,30 +88,9 @@ class Mask:
         else:
             # don't set up edge masks yet
             self.px_to_edge = None
-
-    def _test(self, Lx, Ly):
-        """ Test class cf_methods.
-        
-        @param self The object pointer
-        
-        @param Lx Number for box side length in nm in x dim
-        
-        @param Ly Number for box side length in nm in y dim
-        
-        """
-        try:
-            assert((0,self.mask.shape[1]-1) == self.point_nm2px(0, Ly-1e-5))
-        except AssertionError:
-            print "ERROR in self.point_nm2px(0, Ly)"
-            print self.point_nm2px(0, Ly), Ly, self.mask.shape[1]-1
-            sys.exit()
-
-        try:
-            assert((0,0) == self.point_nm2px(0, 0))
-        except AssertionError:
-            print "ERROR in self.point_nm2px(0, 0)"
-            print self.point_nm2px(0, 0)
-            sys.exit()
+            
+        # set up boundary holder
+        self.boundary_kdtree = None
 
     def _set_units(self, Lx, Ly):
         """ Set box size and unit conversions.
@@ -254,30 +230,34 @@ class Mask:
         @param self The object pointer
         
         """
-        # set up storage and initialize with image edges
-        boundary_pairs = []
-        for xp in range(0, self.mask.shape[0]):
-            boundary_pairs.append([xp, -1])
-            boundary_pairs.append([xp, self.mask.shape[1]])
-        for yp in range(0, self.mask.shape[1]):
-            boundary_pairs.append([-1, yp])
-            boundary_pairs.append([self.mask.shape[0], yp])
-
-        # loop over all invalid points
-        for xp, yp in np.transpose(np.nonzero(self.mask == False)):
-            # set up neighbors to right, left, top, and bottom
-            inds = [[xp+1,yp], [xp-1,yp], [xp,yp+1], [xp,yp-1]]
+        if self.boundary_kdtree:
+            return
             
-            # loop over neighbors
-            for nxp, nyp in inds:
-                # if neighbor indices in array, test for edge
-                if nxp >= 0 and nyp >= 0 and nxp < self.mask.shape[0] and nyp < self.mask.shape[1]:
-                    if self.mask[nxp,nyp]:
-                        boundary_pairs.append([xp,yp])
-                        break
-               
-        # set up kd tree
-        self.boundary_kdtree = spatial.KDTree(np.asarray(boundary_pairs))
+        else:
+            # set up storage and initialize with image edges
+            boundary_pairs = []
+            for xp in range(0, self.mask.shape[0]):
+                boundary_pairs.append([xp, -1])
+                boundary_pairs.append([xp, self.mask.shape[1]])
+            for yp in range(0, self.mask.shape[1]):
+                boundary_pairs.append([-1, yp])
+                boundary_pairs.append([self.mask.shape[0], yp])
+    
+            # loop over all invalid points
+            for xp, yp in np.transpose(np.nonzero(self.mask == False)):
+                # set up neighbors to right, left, top, and bottom
+                inds = [[xp+1,yp], [xp-1,yp], [xp,yp+1], [xp,yp-1]]
+                
+                # loop over neighbors
+                for nxp, nyp in inds:
+                    # if neighbor indices in array, test for edge
+                    if nxp >= 0 and nyp >= 0 and nxp < self.mask.shape[0] and nyp < self.mask.shape[1]:
+                        if self.mask[nxp,nyp]:
+                            boundary_pairs.append([xp,yp])
+                            break
+                   
+            # set up kd tree
+            self.boundary_kdtree = spatial.KDTree(np.asarray(boundary_pairs))
 
     def write_edges(self, outfile=None):
         """ Write to file the distance from each pixel to the closest edge.
@@ -333,6 +313,7 @@ class Mask:
         # or just calculate from scratch
         else:
             # use KD tree to find distance from point to edge
+            self._set_boundary()
             dist_px, id_at_edge = self.boundary_kdtree.query([xp,yp])
 
         # return in correct units

@@ -1,3 +1,7 @@
+# old versions
+*~
+
+# pyc files
 *.py[cod]
 
 # C extensions
