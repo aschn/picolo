@@ -6,7 +6,6 @@
 """
 
 # import from standard library
-import sys
 import itertools as it
 
 # import external packages
@@ -37,10 +36,10 @@ class NeighborList:
         """
         self.is_masked = False
         
-        self._build(config, mask)
+        self.rebuild(config, mask)
     
-    def _build(self, config, mask):
-        """ Initialized data based on config and mask.
+    def rebuild(self, config, mask):
+        """ Initialize data based on config and mask.
         
         @param self The object pointer     
         
@@ -50,23 +49,17 @@ class NeighborList:
         
         """
         # initialize 
-        self._neighbor_dict = self.compute(config)
+        self._neighbor_dict = self._compute(config)
         if mask is not None:
-            self.apply_mask(config, mask)
+            self._apply_mask(config, mask)
             self.is_masked = True
+        else:
+            self.is_masked = False
 
         # check
         self._clean()
-        self._check(config, mask)
         self._ids = self._neighbor_dict.keys()
-
-    def __getitem__(self, i):
-        """ Returns a (possibly empty) set of neighbor ids for particle id i.
-        """
-        if i in self._neighbor_dict:
-            return self._neighbor_dict[i] 
-        else:
-            return set()
+        self._check(config, mask)
 
     def __len__(self):
         """ Returns the number of particles with a nonzero number of neighbors.
@@ -80,11 +73,21 @@ class NeighborList:
         
     def neighbors_of(self, i):
         """ Returns a (possibly empty) set of neighbor ids for particle id i.
-            Alias for __getitem__
+            Note: i is not a neighbor of i.
         """
-        return self.__getitem__(i)
+        if i in self._neighbor_dict:
+            return self._neighbor_dict[i] 
+        else:
+            return set()
+            
+    def are_neighbors(self, i1, i2):
+        """ Returns True if particle ids i1 and i2 are neighbors, False if not. """
+        if i1 in self.neighbors_of(i2) and i2 in self.neighbors_of(i1):
+            return True
+        else:
+            return False
         
-    def compute(self, config):
+    def _compute(self, config):
         """ Figures out connections between particles in a config.
             Should be implemented in every derived class.
         
@@ -96,7 +99,7 @@ class NeighborList:
             val = set of neighbor particle ids
             
         """
-        pass
+        return dict()
     
     def _clean(self):
         """ Removes particles with zero neighbors.                    
@@ -118,7 +121,7 @@ class NeighborList:
         """
         pass
     
-    def apply_mask(self, config, mask):
+    def _apply_mask(self, config, mask):
         """ Remove links that cross invalid regions of the mask.
             May need to be overridden in some derived classes.
         
@@ -137,14 +140,15 @@ class NeighborList:
         masked_neighbors = self._neighbor_dict.copy()
 
         # loop over points
-        for ip1 in self._ids:
+        for ip1 in self._neighbor_dict.keys():
             # get coords for point
-            x1, y1 = self.config.ximages[ip1], self.config.yimages[ip1]
+            x1, y1 = config.ximages[ip1], config.yimages[ip1]
             
             # loop over neighbors
-            for ip2 in self.neighbors_of(ip1):
+            ip2s = self.neighbors_of(ip1).copy()
+            for ip2 in ip2s:
                 # get coords for neighbor
-                x2, y2 = self.config.ximages[ip2], self.config.yimages[ip2]
+                x2, y2 = config.ximages[ip2], config.yimages[ip2]
                 
                 
                 # check if edge crosses mask boundary
@@ -253,9 +257,9 @@ class DistNeighbors(NeighborList):
         # initialize
         self._kdtree = spatial.KDTree(zip(config.x, config.y)) 
         self._r = dist
-        self._build(config, mask)
+        self.rebuild(config, mask)
    
-    def compute(self, config=None):
+    def _compute(self, config=None):
         """ Figures out connections between particles using the cutoff distance.
         
         @param self The object pointer
@@ -268,15 +272,18 @@ class DistNeighbors(NeighborList):
         """
         # make neighbor list with cutoff
         neighbor_list = self._kdtree.query_ball_tree(self._kdtree, self._r)
-
+        
         # prune while making dict
-        self._neighbor_dict = dict()
+        neighbor_dict = dict()
         for ip, neighbors in enumerate(neighbor_list):
             # remove self
             neighbors.remove(ip)
                                 
             # add to dict
-            self._neighbor_dict[ip] = neighbors
+            neighbor_dict[ip] = set(neighbors)
+            
+        # returm
+        return neighbor_dict
                                       
     def neighbors_within(self, dist, particle_id):
         """ Finds neighbors of particle particle_id within distance dist.
@@ -313,9 +320,9 @@ class DelaunayNeighbors(NeighborList):
         @param mask Mask object, default is None
         
         """
-        self._build(config, mask)
+        self.rebuild(config, mask)
         
-    def compute(self, config):
+    def _compute(self, config):
         """ Calculate the Delaunay triangulation.
             Sets triangles, a set of 3-tuples of particle ids in
                 config.*images that form the vertices of a Delaunay triangle.
@@ -370,24 +377,15 @@ class DelaunayNeighbors(NeighborList):
         
         """
         # check number of triangles (only known for PBC)
-        if config.doPBC:
-            try:
-                assert(len(self._triangles) == 2 * config.N)
-            except AssertionError:
-                print "***"
-                print "ERROR in number of Delaunay triangles with PBC"
-                print "got %d triangles, should have %d" % (len(self._triangles),
-                                                            2 * config.N)
-                sys.exit()
+        if config.doPBC and len(self._triangles) != 2 * config.N:
+            msg = "got %d triangles, should have %d" % (len(self._triangles),
+                                                        2 * config.N)
+            raise ValueError(msg)
 
         # check that every particle has neighbors
-        try:
-            assert(len(self._ids) == config.N)
-        except AssertionError:
-            print "***"
-            print "ERROR in number of particles with neighbors"
-            print "got %d particles with neighbors, should have %d" % (len(self._neighbor_dict.keys()), config.N)
-            sys.exit()
+        if not self.is_masked and len(self._ids) != config.N:
+            msg = "got %d particles with neighbors, should have %d" % (len(self._neighbor_dict.keys()), config.N)
+            raise ValueError(msg)
                    
         # assemble histogram of neighbors
         # counts is dict with key = number of neighbors, value = number of vertices with that many neighbors
@@ -402,22 +400,13 @@ class DelaunayNeighbors(NeighborList):
 
         # check histogram
         if not mask:
-            try:
-                assert(0 not in counts)
-            except AssertionError:
-                print "***"
-                print "ERROR in number of neighboring particles"
-                print "got %d particles with 0 neighbor" % (counts[0])
-                sys.exit()
-            try:
-                assert(1 not in counts)
-            except AssertionError:
-                print "***"
-                print "ERROR in number of neighboring particles"
-                print "got %d particles with 1 neighbor" % (counts[1])
-                sys.exit()
+            if 0 in counts:
+                raise ValueError("got %d particles with 0 neighbor" % (counts[0]))
 
-    def apply_mask(self, config, mask):
+            if 1 in counts:
+                raise ValueError("got %d particles with 1 neighbor" % (counts[1]))
+
+    def _apply_mask(self, config, mask):
         """ Use mask to prune edges in Delaunay triangulation that cross
             invalid regions.
 
