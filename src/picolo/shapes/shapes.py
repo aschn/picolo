@@ -63,7 +63,10 @@ class Shape:
     def _postprocessing(self):
         """ Implement this method to provide class-specific functionality
             after construction. """
-        pass
+        if len(self._var_names) == 0:
+            self.invalidate()
+        else:
+            self.put_param('is_valid', True)
                         
     def __len__(self):
         return len(self._vals)
@@ -85,6 +88,10 @@ class Shape:
             return self._vals / self.mag()
         else:
             return self._vals
+
+    def get_components(self, norm=False):
+        """ Returns list of all variable names. """
+        return self._var_names
             
     def iter_components(self):
         """ Iterate over (var_name, val) pairs of feature vector components. """
@@ -164,6 +171,11 @@ class Shape:
             
         """
         self._params[attr_name] = val
+        
+    def invalidate(self):
+        """ Mark this shape as invalid. """
+        self.put_param('is_valid', False)
+        self._vals = np.empty_like(self._vals)
             
     def build_from_coords(self, neighbor_coords):
         """ Implement this method to provide class-specific functionality
@@ -183,6 +195,9 @@ class FourierShape(Shape):
         if len(self._var_names) == 0:
             self._var_names = range(2, 25, 2)
             self._vals = np.zeros(len(self._var_names))
+            self.invalidate()
+        else:
+            self.put_param('is_valid', True)
             
         # convert variable names to ints if needed
         # assuming they are FourierShape-like l variable names
@@ -218,6 +233,9 @@ class FourierShape(Shape):
         for index, iv in enumerate(self._var_names):
             val = np.abs(complexvals[index])
             self.put_component(iv, val)
+            
+        # validate
+        self.put_param('is_valid', True)
 
 class ZernikeShape(Shape):
     """ Shape object where component variables are rotation-invariant
@@ -233,6 +251,9 @@ class ZernikeShape(Shape):
         # if no var names set, set some by default
         if len(self._var_names) == 0:
             self._var_names = range(2, 25)
+            self.invalidate()
+        else:
+            self.put_param('is_valid', True)
 
         # convert variable names to tuples (n,m) if needed
         # assuming they are FourierShape-like l variable names
@@ -282,6 +303,9 @@ class ZernikeShape(Shape):
         for iv in range(len(self._var_names)):
             val = np.abs(complexvals[iv])
             self.put_component(self._var_names[iv], val)
+        
+        # validate
+        self.put_param('is_valid', True)
         
     def _ls2nms(self, ls):
         """ Convert list of Fourier indices to (n,m) Zernike index pairs
@@ -343,11 +367,11 @@ class UnitCellShape(Shape):
     def _postprocessing(self):
         try:
             if self.get('a') and self.get('b') and self.get('theta'):
-                self.put_param('is_cell', True)
+                self.put_param('is_valid', True)
             else:
-                self.put_param('is_cell', False)
+                self.put_param('is_valid', False)
         except KeyError:
-            self.put_param('is_cell', False)
+            self.put_param('is_valid', False)
 
         # if not set, use hard-coded default params for computing unit cells
         defaults = {'min_dist': 14.0, 'max_dist': self.get('neighbor_dist'),
@@ -419,7 +443,7 @@ class UnitCellShape(Shape):
             plt.show()   
             
         # return
-        self.put_param('is_cell', True)
+        self.put_param('is_valid', True)
         self.put_component('a', a)
         self.put_component('b', b)
         self.put_component('theta', math.radians(degrees))
@@ -583,17 +607,11 @@ class UnitCellShape(Shape):
         """
         if a and b and theta:
             return float(a) * float(b) * math.sin(theta)
-        elif self.get('is_cell'):
+        elif self.get('is_valid'):
             return float(self.get('a')) * float(self.get('b')) * math.sin(self.get('theta'))
         else:
             return 0
-            
-    def invalidate(self):
-        """ Mark this unit cell as invalid. """
-        self.put_param('is_cell', False)
-        for iv in range(len(self._var_names)):
-            self._vals[iv] = None
-        
+                    
 def shape_factory_from_values(shape_type, variables, vals, optdata=dict()):
     """ Factory function to create a shape given variable names and values.
         Valid types must contain the substrings 'UnitCell', 'Fourier',
