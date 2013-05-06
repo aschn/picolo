@@ -10,11 +10,15 @@
 import math
 import copy
 import itertools
+import warnings
 
 # import external packages
 import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
+
+# import modules in this package
+from picolo.config import Coord
 
 class Shape:
     """ Base class for shape descriptors.
@@ -66,14 +70,14 @@ class Shape:
 
     def get(self, var_name):
         """ Returns named variable or parameter called var_name.
-            If variable not found, returns None. """
+            If variable not found, raises KeyError. """
         if var_name in self._var_names:
             iv = self._var_names.index(var_name)
             return self._vals[iv]
         elif var_name in self._params:
             return self._params[var_name]
         else:
-            return None
+            raise KeyError('Nothing found for %s' % str(var_name))
                                 
     def get_vals(self, norm=False):
         """ Returns ndarray of values, normalized only if requested. """
@@ -106,15 +110,16 @@ class Shape:
         # make copy of self
         new_shape = self.copy()
         
-        # check that we have all ls
-        extra_vars = set(new_shape._var_names) - set(new_var_names)
-        if len(extra_vars) > 0:
+        # check that new names are a subset of old names
+        if not new_var_names <= new_shape._var_names:
+            extra_vars = set(new_var_names) - set(new_shape._var_names)
+            extra_var_strings = [str(var) for var in extra_vars]
             msg = 'New variables must be a subset of existing variables. '
-            msg += 'Got extra variables %s' % ', '.join(list(extra_vars))
+            msg += 'Got extra variables %s' % ', '.join(extra_var_strings)
             raise ValueError(msg)
 
         # drop unneeded vals
-        for name in new_shape._var_names:
+        for name in self._var_names:
             if name not in new_var_names:
                 new_shape.drop_component(name)
         
@@ -138,7 +143,7 @@ class Shape:
         """
         if self.has_component(var_name):
             iv = self._var_names.index(var_name)
-            del self.var_name[iv]
+            del self._var_names[iv]
             self._vals = np.delete(self._vals, self._vals[iv])
             
     def put_component(self, var_name, val):
@@ -151,7 +156,7 @@ class Shape:
             self._vals[iv] = val
         else:
             self._var_names.append(var_name)
-            self._vals.append(val)
+            self._vals = np.append(self._vals, val)
             
     def put_param(self, attr_name, val):
         """ Sets parameter attribute with value val;
@@ -174,6 +179,11 @@ class FourierShape(Shape):
     
     """
     def _postprocessing(self):
+        # if no var names set, set some by default
+        if len(self._var_names) == 0:
+            self._var_names = range(2, 25, 2)
+            self._vals = np.zeros(len(self._var_names))
+            
         # convert variable names to ints if needed
         # assuming they are FourierShape-like l variable names
         for iv in range(len(self._var_names)):
@@ -191,38 +201,50 @@ class FourierShape(Shape):
         """
         # set up storage
         self.put_param('n_neighbors', len(neighbor_coords))
-        complexvals = np.zeros(max(var_names), dtype=complex)
+        complexvals = np.zeros(len(self._var_names), dtype=complex)
         
         # loop over neighbors
         for coord in neighbor_coords:
             # add component to running sum
             for iv in self._var_names:
-                complexvals.real[iv] += math.cos(iv*coord.theta)
-                complexvals.imag[iv] += math.sin(iv*coord.theta)
+                index = self._var_names.index(iv)
+                complexvals.real[index] += math.cos(iv*coord.theta)
+                complexvals.imag[index] += math.sin(iv*coord.theta)
         
         # normalize sums
         complexvals /= float(max(self.get('n_neighbors'), 1))
         
         # set vals
-        for iv in self._var_names:
-            val = np.abs(complexvals[iv])
+        for index, iv in enumerate(self._var_names):
+            val = np.abs(complexvals[index])
             self.put_component(iv, val)
 
 class ZernikeShape(Shape):
     """ Shape object where component variables are rotation-invariant
         Zernike moments, indexed by tuples of ints (n,m).
+        
+        Required parameters to set with put_param:
+            
+            neighbor_dist = radius of the disc on which radial Zernike
+                polynomials are defined
     
     """
     def _postprocessing(self):
+        # if no var names set, set some by default
+        if len(self._var_names) == 0:
+            self._var_names = range(2, 25)
+
         # convert variable names to tuples (n,m) if needed
         # assuming they are FourierShape-like l variable names
-        if not isinstance(self._var_names[0], tuple):
-            raise RuntimeWarning('dropping all values from ZernikeShape')
-            self._var_names = []
-            self._vals = np.asarray([])
-            nms = self._ls2nms(self._var_names)
-            for nm in nms:
-                self.put_component(nm, 0)
+        if len(self._var_names) > 0:
+            if not isinstance(self._var_names[0], tuple):
+                warnings.warn('dropping all values from ZernikeShape',
+                              RuntimeWarning)
+                nms = self._ls2nms(self._var_names)
+                self._var_names = []
+                self._vals = np.asarray([])
+                for nm in nms:
+                    self.put_component(nm, 0)
                
     def build_from_coords(self, neighbor_coords):    
         """ Update with Zernike rotation invariant moments corresponding to
@@ -239,16 +261,15 @@ class ZernikeShape(Shape):
 
         # set up storage
         self.put_param('n_neighbors', len(neighbor_coords))
-        var_names = ref_shape._var_names
-        complexvals = np.zeros(len(var_names), dtype=complex)
-        ns = [self._nm2n(nm) for nm in var_names]
-        ms = [self._nm2m(nm) for nm in var_names]
+        complexvals = np.zeros(len(self._var_names), dtype=complex)
+        ns = [self._nm2n(nm) for nm in self._var_names]
+        ms = [self._nm2m(nm) for nm in self._var_names]
 
         # loop over neighbors
         for coord in neighbor_coords:
             # add component to running sum
             rscaled = coord.r / self.get('neighbor_dist')
-            for iv in range(len(var_names)):
+            for iv in range(len(self._var_names)):
                 rnm = self._rnm(ns[iv], ms[iv], rscaled)
                 coeff = rnm * (ns[iv]+1.0)/math.pi
                 complexvals.real[iv] += math.cos(ms[iv]*coord.theta) * coeff
@@ -258,9 +279,9 @@ class ZernikeShape(Shape):
         complexvals /= float(max(self.get('n_neighbors'), 1))
 
         # set vals
-        for iv in range(len(var_names)):
+        for iv in range(len(self._var_names)):
             val = np.abs(complexvals[iv])
-            self.put_component(var_names[iv], val)
+            self.put_component(self._var_names[iv], val)
         
     def _ls2nms(self, ls):
         """ Convert list of Fourier indices to (n,m) Zernike index pairs
@@ -313,11 +334,19 @@ class UnitCellShape(Shape):
         get('theta') returns the angle in radians;
         get('degrees') returns the angle in degrees.
     
+        Required parameters, set by default:
+            
+            neighbor_dist = radius of the disc on which radial Zernike
+                polynomials are defined
+    
     """
     def _postprocessing(self):
-        if self.get('a') and self.get('b') and self.get('theta'):
-            self.put_param('is_cell', True)
-        else:
+        try:
+            if self.get('a') and self.get('b') and self.get('theta'):
+                self.put_param('is_cell', True)
+            else:
+                self.put_param('is_cell', False)
+        except KeyError:
             self.put_param('is_cell', False)
 
         # if not set, use hard-coded default params for computing unit cells
@@ -328,9 +357,14 @@ class UnitCellShape(Shape):
                     'min_angle': math.radians(50.0)
                     }
         for k, v in defaults.iteritems():
-            if not self.get(k):
+            try:
+                self.get(k)
+            except KeyError:
                 self.put_param(k, v)
 
+    def build_from_coords(self, neighbor_coords):
+        self.build_from_coords(neighbor_coords, False)
+        
     def build_from_coords(self, neighbor_coords, do_plot=False):    
         """ Update with unit cell (a,b,theta) corresponding to
             positions of neighboring points about reference position.
@@ -353,7 +387,7 @@ class UnitCellShape(Shape):
                 coords_in_range.append(coord)
                         
         # can't have unit cell if fewer than 4 neighbors
-        if len(coords) < 4:
+        if len(coords_in_range) < 4:
             self.invalidate()
             return
             
@@ -361,7 +395,7 @@ class UnitCellShape(Shape):
         bravais, error = self._best_bravais_lattice(coords_in_range)            
         
         # decide if good unit cell
-        if error > self.min_error:
+        if error > self.get('min_error'):
             self.invalidate()
             return
 
@@ -369,15 +403,15 @@ class UnitCellShape(Shape):
         a, b, degrees = self._bravais_to_unit_cell(bravais)
 
         if not a:
-            coord_string = "\n".join([repr(coord) for coord in coords])
+            coord_string = "\n".join([repr(coord) for coord in coords_in_range])
             raise RuntimeWarning('no unit cell for coords: %s' % coord_string)
             self.invalidate()
             return
                 
         # plot
         if do_plot:
-            plt.scatter([cp.x for cp in coords],
-                        [cp.y for cp in coords], c='r', s=70)
+            plt.scatter([cp.x for cp in coords_in_range],
+                        [cp.y for cp in coords_in_range], c='r', s=70)
             plt.title(repr(error))
             if bravais:
                 plt.scatter([bp.x for bp in bravais],
@@ -428,8 +462,6 @@ class UnitCellShape(Shape):
             Returns a list of Coords.
                     
         """
-        bravais_kls.sort(key = lambda u: sum([x*x for x in u]))
-        
         # set up target Bravais lattice up to +/- max_const
         lattice_consts = range(-max_const, max_const+1)
         bravais = []
@@ -473,7 +505,7 @@ class UnitCellShape(Shape):
             for ib in range(ia+1 - len(coords), ia):
                 init_xy_tuple = (coords[ia].x, coords[ia].y,
                                  coords[ib].x, coords[ib].y)
-                args = (coords, self.r_cut)
+                args = (coords, self.get('r_cut'))
                 opt_xy_tuple = optimize.fmin_cobyla(self._lattice_error,
                                                     init_xy_tuple,
                                                     [constr_max1, constr_max2,
@@ -506,23 +538,23 @@ class UnitCellShape(Shape):
         best_area = None
 
         # loop through pairs
-        for ia in range(1, len(best_bravais)):
-            for ib in range(1, len(best_bravais)):
+        for ia in range(1, len(bravais)):
+            for ib in range(1, len(bravais)):
                 if ia is not ib:
                     # enforce a<=b
-                    a = best_bravais[ia].r
-                    b = best_bravais[ib].r
+                    a = bravais[ia].r
+                    b = bravais[ib].r
                     if ( (a > b) or (a < self.get('min_dist')) or
                         (b > self.get('max_dist')) ):
                         continue
                     
                     # get angle, in range (0,2*pi)
-                    angle_diff = best_bravais[ib].theta - best_bravais[ia].theta
+                    angle_diff = bravais[ib].theta - bravais[ia].theta
                     angle = np.remainder(angle_diff, 2.0*math.pi)
                     area = self.area(a, b, angle)
                     
                     # enforce 45<=angle<120
-                    if angle < self.min_angle or angle > self.max_angle:
+                    if angle < self.get('min_angle') or angle > self.get('max_angle'):
                         continue
                     elif not best_angle:
                         best_a = a
@@ -540,7 +572,7 @@ class UnitCellShape(Shape):
                             best_angle = angle
                             best_area = area
                         
-        return best_a, best_b, best_angle
+        return best_a, best_b, math.degrees(best_angle)
                     
     def area(self, a=None, b=None, theta=None):
         """ With no arguments, calculate the area of this unit cell;
@@ -558,7 +590,7 @@ class UnitCellShape(Shape):
             
     def invalidate(self):
         """ Mark this unit cell as invalid. """
-        self.set_param('is_cell', False)
+        self.put_param('is_cell', False)
         for iv in range(len(self._var_names)):
             self._vals[iv] = None
         

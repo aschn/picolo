@@ -6,9 +6,6 @@
     and factory method classifier_factory
 """
 
-# import from standard library
-from exceptions import ValueError
-
 # import external packages
 import numpy as np
 from scipy import stats
