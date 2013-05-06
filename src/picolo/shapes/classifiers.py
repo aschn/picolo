@@ -6,6 +6,9 @@
     and factory method classifier_factory
 """
 
+# import from standard library
+import math
+
 # import external packages
 import numpy as np
 from scipy import stats
@@ -29,19 +32,19 @@ class Classifier:
         
         @param self The object pointer
         
-        @param class_data Object holding data to describe class
+        @param class_data Shape-like object holding data to describe class
         
-        @param test_data Object holding data to describe test data point
+        @param test_data Shape-like object holding data to describe test data point
 
         @retval float >= 0
 
         """            
         # compute match if test data is valid
-        if test_data.is_valid:
+        if test_data.get('is_valid'):
             
             # extract features to compare to class
-            subshape = test_data.subset(class_data.feature_names)
-            test_vals = np.asarray(subshape.vals)
+            subshape = test_data.subset(class_data.get_components())
+            test_vals = np.asarray(subshape.get_vals())
             
             # return match
             return self._match(class_data, test_vals)
@@ -55,7 +58,7 @@ class Classifier:
 
         @param self The object pointer
         
-        @param class_data Object holding data to describe class
+        @param class_data Shape-like object holding data to describe class
         
         @param match_val Float for goodness of fit
             
@@ -69,6 +72,7 @@ class Classifier:
             cutoff = self._rejection_cutoff
             
         # compare value to cutoff
+        print cutoff
         if match_val > cutoff:
             return True
         else:
@@ -88,14 +92,16 @@ class Classifier:
         return 0
 
 class SVMClassifier(Classifier):        
-    """ Classifier that implements a support vector machine. """
-    def _match(self, class_data, test_arr):
-        """ Calculate the match of the test features to the class
+    """ Classifier that implements a support vector machine.
+        Calculates the match of the test features to the class
             representative, a float >=0.
-            Projects features onto the axes of class_rep via
-                (class_rep.vals) (dot product) (test_features_vector)
-                    + (class_rep.intercept)
-            
+        Projects features onto the axes of class_rep via
+            (class_rep.vals) (dot product) (test_features_vector)
+                + (class_rep.intercept)
+        """            
+    def _match(self, class_data, test_arr):
+        """ Calculates the match.
+        
         @param self The object pointer
 
         @param class_data Object with attributes vals and intercept
@@ -119,14 +125,16 @@ class SVMClassifier(Classifier):
 class GMMClassifier(Classifier):
     """ Classifier that implements a Gaussian mixture model with a maximum
         likelihood decision rule.
-        
+
+        Calculates the match of the test features to the class
+            representative, a float between 0 and 1.
+        Calculates the probability of the test vector in the
+            multivariate Gaussian described by the class.
+                    
     """
     def _match(self, class_data, test_arr):
-        """ Calculate the match of the test features to the class
-            representative, a float between 0 and 1.
-            Calculates the probability of the test vector in the
-                multivariate Gaussian described by the class.
-            
+        """ Calculates the match.
+        
         @param self The object pointer
 
         @param class_data Object with attributes vals and sds
@@ -135,8 +143,8 @@ class GMMClassifier(Classifier):
 
         """
         # get vector of means and sds for class
-        class_means = np.asarray(class_data.get_vals())
-        class_sds = np.asarray(class_data.get('sds'))
+        class_means = np.asarray(class_data.get_vals(), dtype=float)
+        class_sds = np.asarray(class_data.get('sds'), dtype=float)
         
         # test that class and test are comparable
         if class_means.shape != test_arr.shape:
@@ -144,11 +152,11 @@ class GMMClassifier(Classifier):
 
         # calculate
         prob = 1.0
-        for ifeat in class_means.shape[0]:
+        for ifeat in range(class_means.shape[0]):
             prob *= stats.norm.pdf(test_arr[ifeat],
                                    loc=class_means[ifeat],
                                    scale=class_sds[ifeat])
-                                   
+            
         # return
         return prob                       
        

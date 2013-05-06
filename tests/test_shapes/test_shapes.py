@@ -77,7 +77,7 @@ class TestBaseShape:
         subsetted_data = [(var, val) for var, val in subsetted.iter_components()]           
         from_scratch = Shape(self.vars[:1], self.vals[:1])
         scratch_data = [(var, val) for var, val in from_scratch.iter_components()]                
-        nose.tools.assert_equal(subsetted_data, scratch_data)
+        nose.tools.assert_almost_equal(subsetted_data, scratch_data)
         
 class TestRealShapes:
     
