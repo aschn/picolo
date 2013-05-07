@@ -7,7 +7,7 @@
 """
 
 # import from standard library
-import math
+import warnings
 
 # import external packages
 import numpy as np
@@ -25,6 +25,10 @@ class Classifier:
             to be counted as a class member (default 0)
         """
         self._rejection_cutoff = cutoff
+        
+    def algorithm(self):
+        """ Returns a string indicating the algorithm used. """
+        return 'default'
     
     def compute_match(self, class_data, test_data):
         """ Return value of match of a test data point to a class.
@@ -89,6 +93,8 @@ class Classifier:
         
         @param test_arr ndarray of features
         """
+        warnings.warn('Getting meaningless classification from default classifier.',
+                      RuntimeWarning)
         return 0
 
 class SVMClassifier(Classifier):        
@@ -99,6 +105,10 @@ class SVMClassifier(Classifier):
             (class_rep.vals) (dot product) (test_features_vector)
                 + (class_rep.intercept)
         """            
+    def algorithm(self):
+        """ Returns a string indicating the algorithm used. """
+        return 'SVM'
+
     def _match(self, class_data, test_arr):
         """ Calculates the match.
         
@@ -132,6 +142,10 @@ class GMMClassifier(Classifier):
             multivariate Gaussian described by the class.
                     
     """
+    def algorithm(self):
+        """ Returns a string indicating the algorithm used. """
+        return 'GMM'
+
     def _match(self, class_data, test_arr):
         """ Calculates the match.
         
@@ -161,9 +175,10 @@ class GMMClassifier(Classifier):
         return prob                       
        
        
-def classifier_factory(classifier_type, cutoff=None):
+def classifier_factory(classifier_type='default', cutoff=None):
     """ Function to create a classifier. Valid types must contain the substrings
-        'GMM' (for Gaussian Mixture Model) or
+        'default' (for default with no algorithm),
+        'GMM' (for Gaussian Mixture Model), or
         'SVM' (for Support Vector Machine); case insensitive.
     
     @param classifier_type String specifying a valid classifier type
@@ -180,5 +195,7 @@ def classifier_factory(classifier_type, cutoff=None):
         return GMMClassifier(cutoff)
     elif 'svm' in lower_case_str:
         return SVMClassifier(cutoff)
+    elif 'default' in lower_case_str:
+        return Classifier(cutoff)
     else:
         raise ValueError('invalid classifier type %s' % classifier_type)

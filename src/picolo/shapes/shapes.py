@@ -63,10 +63,14 @@ class Shape:
     def _postprocessing(self):
         """ Implement this method to provide class-specific functionality
             after construction. """
+        # (in)validate
         if len(self._var_names) == 0:
             self.invalidate()
         else:
             self.put_param('is_valid', True)
+            
+        # set type
+        self.put_param('type', 'Generic')
                         
     def __len__(self):
         return len(self._vals)
@@ -97,6 +101,11 @@ class Shape:
         """ Iterate over (var_name, val) pairs of feature vector components. """
         for iv in range(len(self._var_names)):
             yield self._var_names[iv], self._vals[iv]
+
+    def iter_params(self):
+        """ Iterate over (var_name, val) pairs of non-feature vector parameters. """
+        for var, val in self._params.iteritems():
+            yield var, val
             
     def copy(self):
         """ Deep copy of self. """
@@ -203,6 +212,9 @@ class FourierShape(Shape):
         # assuming they are FourierShape-like l variable names
         for iv in range(len(self._var_names)):
             self._var_names[iv] = int(self._var_names[iv])
+            
+        # set type
+        self.put_param('type', 'Fourier')
     
     def build_from_coords(self, neighbor_coords):    
         """ Update with rotation invariant Fourier descriptors of neighboring
@@ -266,6 +278,8 @@ class ZernikeShape(Shape):
                 self._vals = np.asarray([])
                 for nm in nms:
                     self.put_component(nm, 0)
+        # set type
+        self.put_param('type', 'Zernike')
                
     def build_from_coords(self, neighbor_coords):    
         """ Update with Zernike rotation invariant moments corresponding to
@@ -385,6 +399,9 @@ class UnitCellShape(Shape):
                 self.get(k)
             except KeyError:
                 self.put_param(k, v)
+
+        # set type
+        self.put_param('type', 'UnitCell')
 
     def build_from_coords(self, neighbor_coords):
         self.build_from_coords(neighbor_coords, False)
@@ -615,7 +632,7 @@ class UnitCellShape(Shape):
 def shape_factory_from_values(shape_type, variables, vals, optdata=dict()):
     """ Factory function to create a shape given variable names and values.
         Valid types must contain the substrings 'UnitCell', 'Fourier',
-        or 'Zernike' (case insensitive).
+        'Zernike', or 'Generic' (case insensitive).
     
     @param shape_type String specifying a valid shape type
     
@@ -630,12 +647,14 @@ def shape_factory_from_values(shape_type, variables, vals, optdata=dict()):
     """
     lower_case_str = shape_type.lower()
 
-    if 'unitcell' in lower_case_str:
-        return UnitCellShape(variables, vals, optdata)
+    if 'generic' in lower_case_str:
+        return Shape(variables, vals, **optdata)
+    elif 'unitcell' in lower_case_str:
+        return UnitCellShape(variables, vals, **optdata)
     elif 'fourier' in lower_case_str:
-        return FourierShape(variables, vals, optdata)
+        return FourierShape(variables, vals, **optdata)
     elif 'zernike' in lower_case_str:
-        return ZernikeShape(variables, vals, optdata)
+        return ZernikeShape(variables, vals, **optdata)
     else:
         raise ValueError('invalid shape type %s' % shape_type)
         

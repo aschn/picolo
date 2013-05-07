@@ -9,7 +9,7 @@ import nose.tools
 import math
 
 from picolo.shapes.shapes import Shape, FourierShape, ZernikeShape, UnitCellShape
-from picolo.shapes.shapes import shape_factory_from_coords
+from picolo.shapes.shapes import shape_factory_from_coords, shape_factory_from_values
 from picolo.config import Coord
 
 class TestBaseShape:
@@ -21,9 +21,19 @@ class TestBaseShape:
         self.vals = range(3)
         self.shape_full = Shape(self.vars, self.vals)
         
+    def test_factory_from_vals(self):
+        s = shape_factory_from_values('generic', self.vars, self.vals,
+                                      {'test': True})
+        nose.tools.assert_equal(s.get('test'), True)
+        for var, val in zip(self.vars, self.vals):
+            nose.tools.assert_almost_equal(s.get(var), val)
+        
     @nose.tools.raises(ValueError)
     def test_bad_init(self):
         Shape(self.vars, range(len(self.vars)+1))
+        
+    def test_good_init(self):
+        nose.tools.assert_equal(self.shape_empty.get('type'), 'Generic')
         
     def test_len(self):
         nose.tools.assert_equal(len(self.shape_empty), 0)
@@ -45,9 +55,13 @@ class TestBaseShape:
         for i, val in enumerate(self.shape_full.get_vals(norm=True)):
             nose.tools.assert_almost_equal(self.vals[i]/self.shape_full.mag(), val)
                     
-    def test_iter(self):
+    def test_iter_components(self):
         for var, val in self.shape_full.iter_components():
             nose.tools.assert_almost_equal(val, self.vals[self.vars.index(var)])
+
+    def test_iter_params(self):
+        for var, val in self.shape_full.iter_params():
+            nose.tools.assert_almost_equal(val, self.shape_full.get(var))
 
     def test_mag(self):
         mag = math.sqrt(sum([x*x for x in self.vals]))
@@ -103,6 +117,7 @@ class TestRealShapes:
         nose.tools.assert_almost_equal(self.uc.get('theta'),
                                        math.radians(90.0), places=4)
         nose.tools.assert_almost_equal(self.uc.area(), 15.0*15.0, places=4)
+        nose.tools.assert_equal(self.uc.get('type'), 'UnitCell')
         
     def test_fourier_factory(self):
         factory_shape = shape_factory_from_coords(self.coords, self.fourier)
@@ -118,6 +133,7 @@ class TestRealShapes:
                 nose.tools.assert_almost_equal(val, 1)
             else:
                 nose.tools.assert_almost_equal(val, 0)
+        nose.tools.assert_equal(self.fourier.get('type'), 'Fourier')
 
     def test_zernike_factory(self):
         factory_shape = shape_factory_from_coords(self.coords, self.zernike)
@@ -133,5 +149,4 @@ class TestRealShapes:
                 nose.tools.assert_greater(val, 0)
             else:
                 nose.tools.assert_almost_equal(val, 0)
-
-   
+        nose.tools.assert_equal(self.zernike.get('type'), 'Zernike')
