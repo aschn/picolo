@@ -31,6 +31,9 @@ class TestBaseClassifier:
         nose.tools.assert_false(self.clf_default.is_match(self.shape, default_val))        
         nose.tools.assert_true(self.clf_cut.is_match(self.shape, cut_val))
         
+    def test_algorithm(self):
+        nose.tools.assert_equal(self.clf_default.algorithm(), 'default')
+        
 class TestRealClassifiers:
     
     def setup(self):
@@ -54,6 +57,10 @@ class TestRealClassifiers:
         nose.tools.assert_almost_equal(matchval, expected)
         nose.tools.assert_true(svm.is_match(self.data_shape, matchval))   
         
+    def test_svm_algorithm(self):
+        svm = classifier_factory('svm', 0.1)
+        nose.tools.assert_equal(svm.algorithm(), 'SVM')
+
     def test_gmm_factory(self):
         gmm_fact = classifier_factory('gmm', 0.1)
         gmm_built = GMMClassifier(0.1)
@@ -68,3 +75,7 @@ class TestRealClassifiers:
         expected = stats.norm.pdf(2.1, loc=1, scale=1.1) * stats.norm.pdf(0.1, loc=1, scale=1.1)
         nose.tools.assert_almost_equal(matchval, expected)
         nose.tools.assert_false(gmm.is_match(self.data_shape, matchval))
+        
+    def test_gmm_algorithm(self):
+        gmm = classifier_factory('gmm', 0.1)
+        nose.tools.assert_equal(gmm.algorithm(), 'GMM')
