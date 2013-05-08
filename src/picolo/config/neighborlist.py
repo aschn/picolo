@@ -186,6 +186,8 @@ class NeighborList:
             
         @param mode Switch to change the filter method. Default is 'mode'.
         
+        @retval List of new values, of the same size as inds
+        
         """                                                  
         # set up storage for new filtered vals
         newvals = []
@@ -238,6 +240,84 @@ class NeighborList:
                 
         # return
         return newvals
+        
+    def connected_components(self, props, ids):
+        """ Find distribution of connected component cluster sizes
+            where property = True.
+
+        @param self The object pointer
+        
+        @param props List of objects for truth testing
+            
+        @param ids List of particle ids to cluster, same length as props
+            
+        @retval clusters List (sorted) of sets of particle ids,
+            one set per cluster
+            
+        @retval uncluster List (sorted) of particle ids that didn't match
+            prop and are thus not in clusters
+            
+        """
+        # test input
+        if len(props) != len(ids):
+            raise ValueError('Length of props %d does not match the number of particles %d' %
+                             (len(props), len(ids)))
+        
+        # set up storage
+        clusters = [] # list of sets of particle ids
+        is_clustered = [False for i in ids] # list of bools for each particle id
+        stack = [] # list of ids of particles to process
+        icluster = 0 # running index of working cluster id
+        uncluster = [] # list of particle ids that don't match prop and are thus not in clusters
+
+
+        # loop over reference particles
+        for iid, ip in enumerate(ids):
+
+            # if doesn't match prop, don't try to cluster
+            if not props[iid]:
+                uncluster.append(ip)
+
+            # if clustered, pass
+            elif is_clustered[iid]:
+                continue
+
+            # if not clustered, try to cluster
+            else:
+                # add to stack
+                stack.append(ip)       
+                # start a new cluster
+                clusters.append(set())
+
+                # loop through stack and deplete
+                while(len(stack)) > 0:
+
+                    # add from stack to cluster
+                    ip1 = stack.pop()
+                    clusters[icluster].add(ip1)
+
+                    # loop over neighbors
+                    for ip2 in self.neighbors_of(ip1):
+                        try:
+                            iid2 = ids.index(ip2)
+                        except IndexError:
+                            continue
+                        # filter by property and clustering
+                        if props[iid2] and not is_clustered[iid2]:
+                            # add to stack
+                            stack.append(ip2)
+                            is_clustered[iid2] = True
+
+                # finished this cluster, on to the next one
+                icluster += 1
+
+        # sort lists
+        clusters.sort(key = lambda c:len(c))
+        uncluster.sort()
+
+        # return
+        return clusters, uncluster        
+
         
 class DistNeighbors(NeighborList):
     """ NeighborList with connections defined using a distance cutoff. """
@@ -514,7 +594,7 @@ class DelaunayNeighbors(NeighborList):
                 y3 = (yc[t[(ip_in_set+2)%3]] + yc[t[ip_in_set]]) / 2.0
 
                 # add to area and edges
-                area += self.triangleArea(x1, y1, x2, y2, x3, y3)
+                area += self._triangle_area(x1, y1, x2, y2, x3, y3)
                 edges[0].extend([x2, x3])
                 edges[1].extend([y2, y3])
 
