@@ -2,4 +2,5 @@
 @package picolo
 @author Anna Schneider
 """
-from picolo import Matcher, Writer
+from matcher import Matcher
+from writer import Writer
