@@ -9,7 +9,7 @@ picolo stands for Point-Intensity Classification Of Local Order.
 Usage
 ------
 
-To make documentation:
+To make documentation with doxypy and LaTeX:
 
     doxygen Doxyfile
     cd docs/latex

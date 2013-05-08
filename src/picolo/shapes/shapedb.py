@@ -6,7 +6,6 @@
 """
 
 # import from standard library
-import math
 import xml.dom.minidom as dom
 import xml.etree.ElementTree as ET
 

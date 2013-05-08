@@ -11,9 +11,6 @@ import os
 
 # import external packages
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.colors as colors
 
 # import modules in this package
 from config import Config, DistNeighbors, DelaunayNeighbors, Mask
@@ -347,6 +344,7 @@ class Matcher():
         @retval match_names List of strings for shape names
         
         @retval match_vals List of numbers for goodness of match to shape
+            (0 or 1 if filter is on, float if filter is off)
         
         """
         if shapename is 'all':
@@ -358,14 +356,14 @@ class Matcher():
                 do_filter = True
                 raise RuntimeWarning(msg)
                 
-        elif shapename in self.shapes.names():        
-            class_names = [self.shapes.null_shape_name for i in
-                            self.shapes.class_names()]
-            index = self.shapes.class_names().index(shapename)
-            class_names[index] = shapename
-            
         else:
-            raise KeyError('invalid shape name %s' % shapename)
+            try:
+                class_names = [self.shapes.null_shape_name for i in
+                                self.shapes.class_names()]
+                index = self.shapes.class_names().index(shapename)
+                class_names[index] = shapename            
+            except IndexError:
+                raise KeyError('Invalid shape name %s.' % shapename)
             
         if particle_id is 'all':
             vals = np.zeros([len(class_names), self.config.N])
@@ -422,349 +420,107 @@ class Matcher():
         # returnmatch
         return match_names, match_vals
             
-    def classify(self, particle_id = 'all'):
-        """ Classify particles using pipeline in self.get_best_match.
+    def classify(self, shapename='all', particle_id='all'):
+        """ Classify particles. This is a wrapper around get_best_match
+            and is recommended over calling get_best_match directly in most
+            cases. See docs for get_best_match for more details.
         
         @param self The object pointer
         
+        @param shapename String 'all' for one-vs-rest classification into
+                any class (including the null class), 
+            or a shape name for one-vs-one classification vs the null class.
+
         @param particle_id String 'all' to classify all particles,
             or int to classify 1 particle
             
-        @retval list of ints in that are categorical labels for each particle
+        @retval class_labels List of ints in that are categorical labels
+            for each particle (null class is 0)
         
         """
         # get matches
-        best_names, is_matches = self.get_best_match(shapename = 'all',
-                                                      particle_id = particle_id,
-                                                      do_filter = True,
-                                                      do_smoother = True)
+        best_names, is_matches = self.get_best_match(shapename=shapename,
+                                                      particle_id=particle_id,
+                                                      do_filter=True,
+                                                      do_smoother=True)
                                                       
-        # convert into range(len(self.shapes.names_with_null())
+        # convert into range(len(self.shapes.shape_names())
         class_labels = [self.shapes.class_names().index(best_names[i])
                         for i in range(len(is_matches))]
         
         # return
         return class_labels
                 
-    def fraction_matched(self, shapename = None):
-        """ Calculates the fraction of particles that match a particular
-            shape, or any shape if shapename not provided.
-            TO DO: implement for non-UnitCell shape types!
+    def areas_matched(self, class_labels):
+        """ Calculates the area of particles that match each non-null class,
+            based on the provided class labels.
             
         @param self The object pointer
         
-        @param shapename String for the shape to check
-        
-        @retval ndarray of floats with fraction(s) of particles matched
-        
-        @retval ndarray of floats with fraction(s) of area matched
+        @param class_labels Iterable of ints for class labels (0 is null class)
+                
+        @retval areas Ndarray of floats with nm^2 of area matched,
+            size is # of shapes
         
         """
-        # only implemented for UnitCell now
-        if self.shapes.shape_type() is not 'UnitCell':
-            raise RuntimeError('fraction_matched is only supported for shape mode UnitCell')
-        
-        # compute for a particular shape
-        if shapename:
-            best_names, is_matches = self.get_best_match(shapename,
-                                                         particle_id = 'all')
-            n_matched = np.count_nonzero(np.asarray(is_matches))
-            uc_area = self.shapes[shapename].area()
-            area_matched = float(n_matched) * uc_area
-            
-        # compute for all shapes
-        else:
-            class_labels = self.classify()
-            n_matched = np.bincount(class_labels)[1:]
-            uc_areas = [self.shapes[sn].area() for sn in self.shapes.names()]
-            area_matched = np.multiply(n_matched, uc_areas)
-                        
-        # finish and return
-        total_area = self.mask.get_area()
-        total_n = float(self.config.N)
-        return (n_matched / total_n, area_matched / total_area)
-        
-    def connected_components(self, props, ntype='dist'):
-        """ Find distribution of connected component cluster sizes
-            where property = True.
-            Connectivity uses specified neighbor list (default is distance).
-
-        @param self The object pointer
-        
-        @param props List of objects for truth testing,
-            length = self.config.N
-            
-        @param ntype String for neighbor list, either 'dist' (default)
-            or 'delaunay'
-            
-        @retval clusters List (sorted) of sets of particle ids,
-            one set per cluster
-            
-        @retval uncluster List (sorted) of particle ids that didn't match
-            prop and are thus not in clusters
-            
-        """
-        # test input
-        try:
-            assert(len(props) == self.config.N)
-        except AssertionError:
-            raise AssertionError('Length of props %d does not match the number of particles %d' %
-                                (len(props), self.config.N))
-        
         # set up storage
-        clusters = [] # list of sets of particle ids
-        is_clustered = [False for i in range(self.config.N)] # list of bools for each particle id
-        stack = [] # list of ids of particles to process
-        icluster = 0 # running index of working cluster id
-        uncluster = [] # list of particle ids that don't match prop and are thus not in clusters
+        areas = np.zeros(len(self.shapes.names()))
+        
+        # each UnitCell shape knows its area, so use it
+        if self.shapes.shape_type() is 'UnitCell':
+            for ishape, n_matched in self.count_matched(class_labels):
+                uc_area = self.shapes[self.shapes.names().index(ishape)].area()
+                areas[ishape] = float(n_matched) * uc_area
 
-        # choose method
-        if ntype=='delaunay':
-            neighbors = self.delaunay_neighbors
-        else:
-            neighbors = self.dist_neighbors          
-
-        # loop over reference particles
-        for iref in range(self.config.N):
-
-            # if doesn't match prop, don't try to cluster
-            if not props[iref]:
-                uncluster.append(iref)
-
-            # if clustered, pass
-            elif is_clustered[iref]:
-                continue
-
-            # if not clustered, try to cluster
-            else:
-                # add to stack
-                stack.append(iref)       
-                # start a new cluster
-                clusters.append(set())
-
-                # loop through stack and deplete
-                while(len(stack)) > 0:
-
-                    # add from stack to cluster
-                    ip1 = stack.pop()
-                    clusters[icluster].add(ip1)
-
-                    # loop over neighbors
-                    for ip2 in neighbors.neighbors_of(ip1):
-                        # filter by property and clustering
-                        if props[ip2] and not is_clustered[ip2]:
-                            # add to stack
-                            stack.append(ip2)
-                            is_clustered[ip2] = True
-
-                # finished this cluster, on to the next one
-                icluster += 1
-
-        # sort lists
-        clusters.sort(key = lambda c:len(c))
-        uncluster.sort()
-
+        # or use Delaunay triangulation to estimate enclosed area
+        else:    
+            for ishape, sn in enumerate(self.shapes.names()):
+                ids = self.matched_particles(class_labels, sn)
+                if len(ids) > 0:
+                    area, edges = self.delaunay_neighbors.area_of_point_set(ids,
+                                                                    self.config.x[ids],
+                                                                    self.config.y[ids])
+                    areas[ishape] = area
+                     
         # return
-        return clusters, uncluster        
-
-####################################################
+        return areas
         
-class Writer:
-    """ Class that handles plotting and output for Matcher.
-        Uses matplotlib for plotting.
-    """
-    ##
-    # @var matcher
-    # @brief Matcher object to output info from
-    
-    def __init__(self, matcher):
-        """ Constructor.
-
-        @param self The object pointer
-        
-        @param matcher Matcher object
-        
-        """
-        self.matcher = matcher            
-    
-    def _add_mask(self, ax):
-        # draw mask if present
-        if self.matcher.mask:
-            ax.imshow(self.matcher.mask.mask_for_show, aspect='equal',
-                       cmap=cm.gray, extent=self.matcher.mask.extent)
-    
-    def _save_fig(self, fig, fname):
-        if fname:
-            # save plot to file
-            fig.savefig(fname, transparent = True)
-            print "saved plot of best shapes to file %s" % (fname)
-        else:
-            # display plot on screen
-            fig.show()              
-    
-    def draw_classification(self, fname = None):
-        """ Plot classification shape labels for each particle in config,
-            or save to file if fname is given.
+    def count_matched(self, class_labels):
+        """ Gets the number of particles that match each non-null class,
+            based on the provided class labels.
         
         @param self The object pointer
         
-        @param fname String for filename in which to save plot image
-            (image not saved by default)
-            
-        """
-        # set up plot
-        fig = plt.figure()
-        fig.suptitle('best matches for %s' % (os.path.basename(self.matcher.name)))
-        ax = fig.gca()
-        ax.set_xlabel('x position')
-        ax.set_ylabel('y position')
-        
-        # set up labels and colors
-        nshapes = len(self.matcher.shapes.class_names())
-        possible_colors = ['white', 'red', 'blue', 'green', 'purple',
-                           'orange', 'yellow', 'brown', 'pink', 'gray']
-        class_colors = possible_colors[0:nshapes]
-
-        # compute and store values
-        class_labels = self.matcher.classify()
-        print zip(self.matcher.shapes.class_names(), np.bincount(class_labels))
-               
-        # plot locations and order parameters
-        for ishape in range(nshapes):
-            xs = np.asarray(self.matcher.config.x)[class_labels==ishape]
-            ys = np.asarray(self.matcher.config.y)[class_labels==ishape]
-            ax.scatter(xs, ys, s=50, c=class_colors[ishape],
-                        label=self.matcher.shapes.class_names()[ishape])
-        ax.legend(bbox_to_anchor=(1.35, 1))
-        ax.axis(self.matcher.mask.extent)
-
-        # draw mask
-        self._add_mask(ax)
-        
-        # save plot to file
-        self._save_fig(fig, fname)
-        
-    def draw_unitcell_diagnostics(self, shapename, fname = None):
-        """ Create diagnostic plots for unit cell shapes.
-        
-        @param self The object pointer
-        
-        @param shapename String for shape name
-        
-        @param fname String for filename in which to save plot image
-            (image not saved by default)
-            
-        """
-        # set up plot
-        fig = plt.figure()
-        fig.suptitle('Features for match of %s to shape %s' % 
-                     (os.path.basename(self.matcher.name), shapename))
-        
-        # get subplot layout
-        if self.matcher.shapes.shape_type() == 'UnitCell':
-            n_features = 3
-        else:
-            raise ValueError('invalid shape mode %s' % self.matcher.shapes.shape_type())
-
-        # set up data
-        pltnames = ['a (nm)', 'b (nm)', 'angle (deg)']
-        target_vals = [self.matcher.shapes[shapename].get('a'),
-                       self.matcher.shapes[shapename].get('b'),
-                       self.matcher.shapes[shapename].get('degrees')]
-        data = [ [], [], [] ]
-        uc_xs = []
-        uc_ys = []
-        other_xs = []
-        other_ys = []
-        for ip in self.matcher.config.indices:
-            uc = self.matcher.get_features(shapename, ip)
-            if uc.get('is_valid'):
-                data[0].append(uc.get('a'))
-                data[1].append(uc.get('b'))
-                data[2].append(uc.get('degrees'))
-                uc_xs.append(self.matcher.config.x[ip])
-                uc_ys.append(self.matcher.config.y[ip])  
-            else:
-                other_xs.append(self.matcher.config.x[ip])
-                other_ys.append(self.matcher.config.y[ip]) 
-        minmaxes = []
-        for i in range(n_features):
-            try:
-                absmax = np.max(np.abs(np.asarray(data[i]) - target_vals[i]))
-            except ValueError: # if no ucs are valid
-                absmax = 0
-            minmaxes.append(absmax)
-        
-        # plot matches 
-        for iplot in range(n_features):
-            # plot data
-            ax = fig.add_subplot(2, 3, iplot+1)
-            ax.set_title(pltnames[iplot])
-            ax.set_xlabel('x position')
-            ax.set_ylabel('y position')
-
-            normalizer = colors.Normalize(vmin=target_vals[iplot]-
-                                            minmaxes[iplot],
-                                          vmax=target_vals[iplot]+
-                                            minmaxes[iplot])
-            ax.scatter(other_xs, other_ys, c='gray', s=10)
-            sc = ax.scatter(uc_xs, uc_ys, c=data[iplot], cmap=cm.RdBu_r, s=10,
-                        norm=normalizer)
-            try:
-                fig.colorbar(sc, ax=ax)
-            except TypeError: # if no ucs are valid
-                pass
-            ax.axis([0, self.matcher.config.Lx, 0, self.matcher.config.Ly])
-
-            # draw mask if present
-            self._add_mask(ax)
+        @param class_labels Iterable of ints for class labels (0 is null class)
                 
-                
-        # plot features
-        ax = fig.add_subplot(2, 3, 4)
-        ax.set_title('a vs b')
-        ax.scatter(data[1], data[0])
-        ax = fig.add_subplot(2,3,5)
-        ax.set_title('a vs angle')
-        ax.scatter(data[2], data[0])
-        ax = fig.add_subplot(2,3,6)
-        ax.set_title('b vs angle')
-        ax.scatter(data[2], data[1])
+        @retval counts Ndarray of ints for number of particles matched,
+            size is # of shapes
         
-        # save plot to file
-        self._save_fig(fig, fname)
+        """
+        counts = np.bincount(class_labels)[1:]
+        n_to_pad = len(self.shapes.names()) - len(counts)
+        if n_to_pad == 0:
+            return counts
+        else:
+            return np.pad(counts, (0,n_to_pad), 'constant',
+                          constant_values=(0,0))
         
-    def draw_neighbors(self, neighbor_list, fname = None):
-        """ Draw neighbor list to screen,
-            or save to file if fname is given.
-        
+    def particles_matched(self, class_labels, shapename='all'):
+        """ Gets the ids of particles that match each class, based on
+            the provided class labels. If shapename is 'all', gets particles
+            that match any class.
+            
         @param self The object pointer
         
-        @param neighbor_list NeighborList object (or derived therefrom)
+        @param class_labels Iterable of ints for class labels (0 is null class)
+                        
+        @retval ndarray of ints for ids of particles matched
+                
+        """        
+        # pull out matching ids
+        if shapename == 'all':
+            return np.where(class_labels)[0]
+        else:
+            index = self.shapes.class_names().index(shapename)
+            return np.where(class_labels == index)[0]
         
-        @param fname String for filename in which to save plot image
-            (image not saved by default)
-        """
-        # set up plot
-        # set up plot
-        fig = plt.figure()
-        fig.suptitle('Neighbors')
-        ax = fig.gca()
-        ax.set_xlabel('x position')
-        ax.set_ylabel('y position')
-        
-        # plot triangles
-        for ip,ns in neighbor_list.iteritems():
-            for jp in ns:
-                edge = [ip, jp]
-                x_i = self.matcher.config.ximages[edge]
-                y_i = self.matcher.config.yimages[edge]
-                ax.plot(x_i, y_i, 'k')
-        ax.axis(self.matcher.mask.extent)
-
-        # draw mask
-        self._add_mask(ax)
-        
-        # save plot to file
-        self._save_fig(fig, fname)
-            

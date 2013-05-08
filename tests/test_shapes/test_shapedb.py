@@ -67,6 +67,16 @@ class TestShapeDB:
         self.db_default.load('tests/data/sample_db_in.xml')
         nose.tools.assert_true('test' in self.db_default.names())
 
+    def test_load_uc(self):
+        self.db_default.load('tests/data/sample_db_uc.xml')
+        nose.tools.assert_true('test' in self.db_default.names())
+        nose.tools.assert_equal(self.db_default._classifier.algorithm(),
+                                'GMM')
+        for var in ['a', 'b', 'degrees']:
+            nose.tools.assert_true(self.db_default['test'].has_component(var))
+        nose.tools.assert_greater(self.db_default._classifier._rejection_cutoff,
+                                  0)
+
     def test_init_w_file(self):
         sdb = ShapeDB('tests/data/sample_db_in.xml')
         nose.tools.assert_true(sdb.names(), ['test'])

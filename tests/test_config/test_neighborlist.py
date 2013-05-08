@@ -87,4 +87,13 @@ class TestNeighborList:
         results = self.neighborlist_dist.kNN_filter(all_ones_but_one, mode='mean')
         nose.tools.assert_almost_equals(results[0], expected)
         
+    def test_connected_components(self):
+        n = len(self.neighborlist_dist)
+        props = [True for i in range(10)] + [False for i in range(n-10)]
+        clusters, uncluster = self.neighborlist_dist.connected_components(props, range(n))
+        nose.tools.assert_equal(len(uncluster), n-10)
+        nose.tools.assert_greater(len(clusters), 1)
+        for i in range(10):
+            nose.tools.assert_true(i in set.union(*clusters))
+            
         
