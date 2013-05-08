@@ -15,7 +15,7 @@ To make documentation:
     cd docs/latex
     make refman.pdf
 
-Then open <pre>docs/html/index.html</pre> or <pre>docs/latex/refman.pdf</pre>.
+Then open <code>docs/html/index.html</code> or <code>docs/latex/refman.pdf</code>.
 
 
 To run tests with nose and coverage:
