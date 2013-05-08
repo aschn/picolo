@@ -19,15 +19,12 @@ import matplotlib.colors as colors
 from config import Config, DistNeighbors, DelaunayNeighbors, Mask
 from shapes import ShapeDB, shape_factory_from_coords
 
-class ShapeMatcher():
+class Matcher():
     """Class that computes and classifies 2D crystal types.
     """
     ##
     # @var name
     # @brief String for self-identification
-    #
-    # @var mode
-    # @brief String for the shape type
     #
     # @var config
     # @brief Config object containing coordinates
@@ -40,16 +37,11 @@ class ShapeMatcher():
     #
     # @var shapes
     # @brief ShapeDB object containing target shapes to match against
-    #
-    # @var features
-    # @brief Dict containing features for each data point
-    #    (key = shapename, val = List of features)
-
     def __init__(self, fname, xcol=0, ycol=1, delim=' ',
                  tagcol=None, goodtag=None, trainingcol=None,
                  header=0, pbc=False, lx=0, ly=0,
                  imname=None, skipneg=True,
-                 name='', xmlname='', mode='UnitCell'):
+                 name='', xmlname=''):
         """ Constructor.
         
         @param self The object pointer
@@ -85,16 +77,11 @@ class ShapeMatcher():
         @param name String for self-identification
         
         @param xmlname String with path to xml file defining shapes
-        
-        @param mode String for the shape type (default UnitCell)
-        
+                
         """
         # set up name
         self.name = name
 
-        # set up shape matching mode
-        self.mode = mode
-        
         # set up config
         xc, yc, training_ids = self.read_config(fname, xcol, ycol, delim,
                                                 tagcol, goodtag, trainingcol,
@@ -234,8 +221,8 @@ class ShapeMatcher():
             
         """
         # set up
-        if 'features' not in dir(self):
-            self.features = dict()
+        if '_features' not in dir(self):
+            self._features = dict()
         if shapename:
             namelist = [shapename]
         else:
@@ -243,7 +230,7 @@ class ShapeMatcher():
         
         # loop through shape names
         for sname in namelist:
-            self.features[sname] = []
+            self._features[sname] = []
             
             # loop through particles
             for ip in self.config.indices:
@@ -252,7 +239,7 @@ class ShapeMatcher():
                 particle_features = self.get_features(sname, ip)
                     
                 # store features
-                self.features[sname].append(particle_features)
+                self._features[sname].append(particle_features)
                                 
     def get_features(self, shapename, particle_id):
         """ Get features for a particle using params from a shape.
@@ -268,10 +255,10 @@ class ShapeMatcher():
         """
         # return what's stored in self.features if available
         try:
-            return self.features[shapename][particle_id]
+            shape = self._features[shapename][particle_id]
             
         # or compute if not
-        except KeyError or IndexError:
+        except (KeyError, IndexError):
             # get ref shape
             ref_shape = self.shapes[shapename]
             
@@ -285,8 +272,8 @@ class ShapeMatcher():
             # compute features based on mode
             shape = shape_factory_from_coords(neighbor_coords, ref_shape)
                 
-            # return
-            return shape
+        # return
+        return shape
     
     def get_raw_match(self, shapename, particle_id = 'all'):
         """ Get match for particle(s) to a shape.
@@ -317,7 +304,7 @@ class ShapeMatcher():
             raise ValueError('invalid shape name %s' % shapename)
             
         # set features, if not done so
-        if shapename not in self.features.keys():
+        if shapename not in self._features.keys():
             self.set_features(shapename)
             
         # compute match
@@ -474,7 +461,7 @@ class ShapeMatcher():
         
         """
         # only implemented for UnitCell now
-        if self.mode is not 'UnitCell':
+        if self.shapes.shape_type() is not 'UnitCell':
             raise RuntimeError('fraction_matched is only supported for shape mode UnitCell')
         
         # compute for a particular shape
@@ -563,7 +550,7 @@ class ShapeMatcher():
                     clusters[icluster].add(ip1)
 
                     # loop over neighbors
-                    for ip2 in neighbors[ip1]:
+                    for ip2 in neighbors.neighbors_of(ip1):
                         # filter by property and clustering
                         if props[ip2] and not is_clustered[ip2]:
                             # add to stack
@@ -582,29 +569,29 @@ class ShapeMatcher():
 
 ####################################################
         
-class ShapeMatchWriter:
-    """ Class that handles plotting and output for ShapeMatcher.
+class Writer:
+    """ Class that handles plotting and output for Matcher.
         Uses matplotlib for plotting.
     """
     ##
-    # @var sm
-    # @brief ShapeMatcher object to output info from
+    # @var matcher
+    # @brief Matcher object to output info from
     
-    def __init__(self, sm):
+    def __init__(self, matcher):
         """ Constructor.
 
         @param self The object pointer
         
-        @param sm ShapeMatcher object
+        @param matcher Matcher object
         
         """
-        self.sm = sm            
+        self.matcher = matcher            
     
     def _add_mask(self, ax):
         # draw mask if present
-        if self.sm.mask:
-            ax.imshow(self.sm.mask.mask_for_show, aspect='equal',
-                       cmap=cm.gray, extent=self.sm.mask.extent)
+        if self.matcher.mask:
+            ax.imshow(self.matcher.mask.mask_for_show, aspect='equal',
+                       cmap=cm.gray, extent=self.matcher.mask.extent)
     
     def _save_fig(self, fig, fname):
         if fname:
@@ -627,29 +614,29 @@ class ShapeMatchWriter:
         """
         # set up plot
         fig = plt.figure()
-        fig.suptitle('best matches for %s' % (os.path.basename(self.sm.name)))
-        fig.add_xlabel('x position')
-        fig.add_ylabel('y position')
+        fig.suptitle('best matches for %s' % (os.path.basename(self.matcher.name)))
+        ax = fig.gca()
+        ax.set_xlabel('x position')
+        ax.set_ylabel('y position')
         
         # set up labels and colors
-        nshapes = len(self.sm.shapes.class_names())
+        nshapes = len(self.matcher.shapes.class_names())
         possible_colors = ['white', 'red', 'blue', 'green', 'purple',
                            'orange', 'yellow', 'brown', 'pink', 'gray']
         class_colors = possible_colors[0:nshapes]
 
         # compute and store values
-        class_labels = self.sm.classify()
-        print zip(self.sm.shapes.class_names(), np.bincount(class_labels))
+        class_labels = self.matcher.classify()
+        print zip(self.matcher.shapes.class_names(), np.bincount(class_labels))
                
         # plot locations and order parameters
-        ax = fig.add_subplot(111)
         for ishape in range(nshapes):
-            xs = np.asarray(self.sm.config.x)[class_labels==ishape]
-            ys = np.asarray(self.sm.config.y)[class_labels==ishape]
+            xs = np.asarray(self.matcher.config.x)[class_labels==ishape]
+            ys = np.asarray(self.matcher.config.y)[class_labels==ishape]
             ax.scatter(xs, ys, s=50, c=class_colors[ishape],
-                        label=self.sm.shapes.class_names()[ishape])
+                        label=self.matcher.shapes.class_names()[ishape])
         ax.legend(bbox_to_anchor=(1.35, 1))
-        ax.axis([0, self.sm.config.Lx, 0, self.sm.config.Ly])
+        ax.axis(self.matcher.mask.extent)
 
         # draw mask
         self._add_mask(ax)
@@ -671,53 +658,63 @@ class ShapeMatchWriter:
         # set up plot
         fig = plt.figure()
         fig.suptitle('Features for match of %s to shape %s' % 
-                     (os.path.basename(self.sm.name), shapename))
-        fig.add_xlabel('x position')
-        fig.add_ylabel('y position')
+                     (os.path.basename(self.matcher.name), shapename))
         
         # get subplot layout
-        if self.sm.mode == 'UnitCell':
+        if self.matcher.shapes.shape_type() == 'UnitCell':
             n_features = 3
         else:
-            raise ValueError('invalid shape mode %s' % self.sm.mode)
+            raise ValueError('invalid shape mode %s' % self.matcher.shapes.shape_type())
 
         # set up data
         pltnames = ['a (nm)', 'b (nm)', 'angle (deg)']
-        target_vals = [self.sm.shapes[shapename].get('a'),
-                       self.sm.shapes[shapename].get('b'),
-                       self.sm.shapes[shapename].get('degrees')]
+        target_vals = [self.matcher.shapes[shapename].get('a'),
+                       self.matcher.shapes[shapename].get('b'),
+                       self.matcher.shapes[shapename].get('degrees')]
         data = [ [], [], [] ]
         uc_xs = []
         uc_ys = []
         other_xs = []
         other_ys = []
-        for ip, uc in enumerate(self.sm.features[shapename]):
-            if uc.get('is_cell'):
+        for ip in self.matcher.config.indices:
+            uc = self.matcher.get_features(shapename, ip)
+            if uc.get('is_valid'):
                 data[0].append(uc.get('a'))
                 data[1].append(uc.get('b'))
                 data[2].append(uc.get('degrees'))
-                uc_xs.append(self.sm.config.x[ip])
-                uc_ys.append(self.sm.config.y[ip])  
+                uc_xs.append(self.matcher.config.x[ip])
+                uc_ys.append(self.matcher.config.y[ip])  
             else:
-                other_xs.append(self.sm.config.x[ip])
-                other_ys.append(self.sm.config.y[ip])               
-        minmaxes = [np.max(np.abs(np.asarray(data[i]) - target_vals[i]))
-                    for i in range(n_features)]
+                other_xs.append(self.matcher.config.x[ip])
+                other_ys.append(self.matcher.config.y[ip]) 
+        minmaxes = []
+        for i in range(n_features):
+            try:
+                absmax = np.max(np.abs(np.asarray(data[i]) - target_vals[i]))
+            except ValueError: # if no ucs are valid
+                absmax = 0
+            minmaxes.append(absmax)
         
         # plot matches 
         for iplot in range(n_features):
             # plot data
             ax = fig.add_subplot(2, 3, iplot+1)
             ax.set_title(pltnames[iplot])
+            ax.set_xlabel('x position')
+            ax.set_ylabel('y position')
+
             normalizer = colors.Normalize(vmin=target_vals[iplot]-
                                             minmaxes[iplot],
                                           vmax=target_vals[iplot]+
                                             minmaxes[iplot])
             ax.scatter(other_xs, other_ys, c='gray', s=10)
-            ax.scatter(uc_xs, uc_ys, c=data[iplot], cmap=cm.RdBu_r, s=10,
+            sc = ax.scatter(uc_xs, uc_ys, c=data[iplot], cmap=cm.RdBu_r, s=10,
                         norm=normalizer)
-            fig.colorbar(ax=ax)
-            ax.axis([0, self.sm.config.Lx, 0, self.sm.config.Ly])
+            try:
+                fig.colorbar(sc, ax=ax)
+            except TypeError: # if no ucs are valid
+                pass
+            ax.axis([0, self.matcher.config.Lx, 0, self.matcher.config.Ly])
 
             # draw mask if present
             self._add_mask(ax)
@@ -752,18 +749,18 @@ class ShapeMatchWriter:
         # set up plot
         fig = plt.figure()
         fig.suptitle('Neighbors')
-        fig.add_xlabel('x position')
-        fig.add_ylabel('y position')
+        ax = fig.gca()
+        ax.set_xlabel('x position')
+        ax.set_ylabel('y position')
         
         # plot triangles
-        ax = fig.add_subplot(111)
         for ip,ns in neighbor_list.iteritems():
             for jp in ns:
                 edge = [ip, jp]
-                x_i = self.sm.config.ximages[edge]
-                y_i = self.sm.config.yimages[edge]
+                x_i = self.matcher.config.ximages[edge]
+                y_i = self.matcher.config.yimages[edge]
                 ax.plot(x_i, y_i, 'k')
-        ax.axis([0, self.sm.config.Lx, 0, self.sm.config.Ly])
+        ax.axis(self.matcher.mask.extent)
 
         # draw mask
         self._add_mask(ax)

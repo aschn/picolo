@@ -6,9 +6,9 @@
 """
 
 # import from standard library
-import sys
 import collections
 import os
+import warnings
 
 # import external packages
 import numpy as np
@@ -42,7 +42,7 @@ class Mask:
     # @var extent 
     # @brief Tuple of numbers, (xmin, xmax, ymin, ymax)
                                  
-    def __init__(self, imfile, Lx, Ly):
+    def __init__(self, imfile='', Lx=1, Ly=1):
         """public: initialize mask
         
         @param self The object pointer
@@ -57,7 +57,12 @@ class Mask:
         # read image into array
         # x = 2nd dim, y = 1st dim
         # origin = upper left for imshow
-        im = plt.imread(imfile)
+        try:
+            im = plt.imread(imfile)
+        except IOError:
+            warnings.warn('No file found at %s, setting mask to all valid.' % repr(imfile),
+                          RuntimeWarning)
+            im = np.ones([Ly, Lx])
 
         # convert to Cartesian coordinate form
         # x = 1st dim, y = 2nd dim
@@ -65,10 +70,6 @@ class Mask:
         newim = im.copy()
         self.im = np.swapaxes(newim, 0,1)
         self.mask = self.im > 0
-
-        # if nothing is masked out, return empty
-        if np.count_nonzero(self.mask) == 0:
-            return None
 
         # set up images with origin for nice imshow behavior
         self.im_for_show = im[::-1]
@@ -118,7 +119,7 @@ class Mask:
 
         # set conversion factors
         self.cf_px2nm = x_px2nm
-        self.cf_nm2px = y_px2nm
+        self.cf_nm2px = x_nm2px
         
         # set extent for image
         self.extent = (0, Lx, 0, Ly)

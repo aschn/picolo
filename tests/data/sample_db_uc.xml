@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<data classifier-type="GMM" shape-type="UnitCell">
+        <class-shape name="test">
+                <component type='a'>20</component>
+                <component type='b'>22</component>
+                <component type='degrees'>70</component>
+		<csvvar type='sds'>2,2,5</csvvar>
+                <floatvar type="neighbor_dist">30</floatvar>
+	</class-shape>
+</data>

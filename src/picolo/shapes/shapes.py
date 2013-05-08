@@ -380,7 +380,8 @@ class UnitCellShape(Shape):
     """
     def _postprocessing(self):
         try:
-            if self.get('a') and self.get('b') and self.get('theta'):
+            if self.get('a') and self.get('b') and (self.get('theta')
+                                                    or self.get('degrees')):
                 self.put_param('is_valid', True)
             else:
                 self.put_param('is_valid', False)
@@ -399,7 +400,18 @@ class UnitCellShape(Shape):
                 self.get(k)
             except KeyError:
                 self.put_param(k, v)
-
+                
+        # set angle in degrees and radians
+        if self.get('is_valid'):
+            try:
+                self.get('theta')
+            except KeyError:
+                self.put_component('theta', math.radians(self.get('degrees')))
+            try:
+                self.get('degrees')
+            except KeyError:
+                self.put_param('degrees', math.degrees(self.get('theta')))
+            
         # set type
         self.put_param('type', 'UnitCell')
 

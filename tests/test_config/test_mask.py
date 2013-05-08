@@ -20,28 +20,36 @@ class TestMask:
     def test_init(self):
         nose.tools.assert_almost_equals(self.mask.cf_px2nm, 1)        
         nose.tools.assert_almost_equals(self.mask.cf_nm2px, 1)        
-        assert self.mask.extent == (0, self.Lx, 0, self.Ly)
-        assert self.mask.edgefile == 'tests/data/sample_mask_pxToEdge.txt'
+        nose.tools.assert_equal(self.mask.extent, (0, self.Lx, 0, self.Ly))
+        nose.tools.assert_equal(self.mask.edgefile,
+                                'tests/data/sample_mask_pxToEdge.txt')
+        
+    def test_empty_init(self):
+        default_mask = Mask()
+        size = default_mask.mask.shape[0] * default_mask.mask.shape[0]
+        nvalid = sum(default_mask.mask)
+        nose.tools.assert_equal(size, nvalid)
         
     def test_nm2px(self):
-        assert (0,self.mask.mask.shape[1]-1) == self.mask._point_nm2px(0, self.Ly-1e-5)
-        assert (0,0) == self.mask._point_nm2px(0, 0)
+        nose.tools.assert_equal((0,self.mask.mask.shape[1]-1),
+                                self.mask._point_nm2px(0, self.Ly-1e-5))
+        nose.tools.assert_equal((0,0), self.mask._point_nm2px(0, 0))
 
     def test_mask(self):
-        assert self.mask.mask[1,1] == False
-        assert self.mask.mask[400,200] == True
-        assert self.mask.mask[200,400] == False
+        nose.tools.assert_false(self.mask.mask[1,1])
+        nose.tools.assert_true(self.mask.mask[400,200])
+        nose.tools.assert_false(self.mask.mask[200,400])
         
     def test_area(self):
         nose.tools.assert_almost_equals(self.mask.get_area(), 107067)
         
     def test_valid_seg(self):
-        assert self.mask.is_valid_seg(400, 200, 400, 300) == True
-        assert self.mask.is_valid_seg(400, 200, 200, 200) == False
+        nose.tools.assert_true(self.mask.is_valid_seg(400, 200, 400, 300))
+        nose.tools.assert_false(self.mask.is_valid_seg(400, 200, 200, 200))
         
     def test_interior(self):
-        assert self.mask.is_interior(400, 200, 79) == True
-        assert self.mask.is_interior(400, 200, 80) == False
+        nose.tools.assert_true(self.mask.is_interior(400, 200, 79))
+        nose.tools.assert_false(self.mask.is_interior(400, 200, 80))
         
     def test_dist_to_edge(self):
         nose.tools.assert_almost_equals(self.mask.dist_to_edge(400, 200),
