@@ -34,6 +34,10 @@ class TestBaseClassifier:
     def test_algorithm(self):
         nose.tools.assert_equal(self.clf_default.algorithm(), 'default')
         
+    def test_factory(self):
+        clf_factory = classifier_factory()
+        nose.tools.assert_false(clf_factory.is_match(None, 0))
+        
 class TestRealClassifiers:
     
     def setup(self):

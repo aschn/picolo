@@ -76,7 +76,6 @@ class Classifier:
             cutoff = self._rejection_cutoff
             
         # compare value to cutoff
-        print cutoff
         if match_val > cutoff:
             return True
         else:
@@ -175,7 +174,7 @@ class GMMClassifier(Classifier):
         return prob                       
        
        
-def classifier_factory(classifier_type='default', cutoff=None):
+def classifier_factory(classifier_type='default', cutoff=0):
     """ Function to create a classifier. Valid types must contain the substrings
         'default' (for default with no algorithm),
         'GMM' (for Gaussian Mixture Model), or

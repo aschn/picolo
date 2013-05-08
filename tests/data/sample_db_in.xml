@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<data classifier-type="default" shape-type="Generic">
+        <class-shape name="test">
+                <component type='a'>1</component>
+                <boolvar type="is_valid">False</boolvar>
+                <floatvar type="max_dist">30</floatvar>
+                <textvar type="type">Generic</textvar>
+		</class-shape>
+</data>

@@ -21,6 +21,7 @@ class TestShapeDB:
         
     def test_init(self):
         nose.tools.assert_equal(self.db_default.null_shape_name, '')
+        nose.tools.assert_equal(self.db_default._classifier.algorithm(), 'default')
 
     def test_len(self):
         nose.tools.assert_equal(len(self.db_default), 0)        
@@ -54,7 +55,9 @@ class TestShapeDB:
     def test_match(self):
         matchval = self.db_one.compute_match('test', self.s)
         expected = classifier_factory().compute_match(self.db_one['test'], self.s)
+        ismatch = self.db_one.is_match('test', self.s)
         nose.tools.assert_almost_equal(matchval, expected)
+        nose.tools.assert_false(ismatch)
         
     def test_save(self):
         returncode = self.db_one.save('tests/data/sample_db_out.xml')

@@ -300,7 +300,7 @@ class DistNeighbors(NeighborList):
         # set up with correct distance
         if dist != self._r:
             self._r = dist
-            self.compute()
+            self._compute()
             
         # return 
         return self.neighbors_of(particle_id)

@@ -16,9 +16,6 @@ setup(
     license='LICENSE.txt',
     description='A library for detecting and classifying local order in spatial data.',
     long_description=open('README.md').read(),
-    install_requires=[
-        "matplotlib >= 1.1.1",
-        "numpy >= 1.6.0",
-        "scipy >= 0.9.0",
-    ],
+    requires=["matplotlib (>=1.1.1)", "numpy (>=1.6.0)", "scipy (>=0.9.0)"],
+    provides=['picolo', 'config', 'shapes']
 )

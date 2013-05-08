@@ -127,6 +127,22 @@ class ShapeDB:
         # forward request to classifier
         return self._classifier.compute_match(self._data[name], features)
 
+    def is_match(self, name, features):
+        """ Get existence of good fit for features to shape name using classifer.
+        
+        @param self The object pointer
+        
+        @param name String for shape name
+        
+        @param features Shape object to be matched
+        
+        @retval Bool for validity of match
+        
+        """
+        # forward request to classifier
+        val = self.compute_match(name, features)
+        return self._classifier.is_match(self._data[name], val)
+
     def save(self, xmlf):
         """ Saves the current state of the database to an xml file on disc.
             Overwrites any existing content in the file.
@@ -188,10 +204,10 @@ class ShapeDB:
                     optdata[child.get('type').strip()] = bool(child.text)
                 elif child.tag in ['floatvar']:
                     vtype = child.get('type').strip()
-                    if 'theta' in vtype:
-                        optdata[vtype] = math.radians(float(child.text))
-                    else:
-                        optdata[vtype] = float(child.text)
+                    optdata[vtype] = float(child.text)
+                elif child.tag in ['csvvar']:
+                    vtype = child.get('type').strip()
+                    optdata[vtype] = [float(x) for x in child.text.split(',')]
                 else: # process as text
                     optdata[child.get('type').strip()] = child.text.strip()
 
