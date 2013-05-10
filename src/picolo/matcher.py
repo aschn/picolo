@@ -8,6 +8,7 @@
 # import from standard library
 import csv
 import os
+import logging
 
 # import external packages
 import numpy as np
@@ -271,6 +272,33 @@ class Matcher():
                 
         # return
         return shape
+        
+    def feature_matrix(self, shapename, normalize=False):
+        """ Get feature matrix for all particles using params from a shape.
+        
+        @param self The object pointer
+        
+        @param shapename String for a shape in self.shapes
+        
+        @param normalize Bool for whether or not to normalize each row,
+            default False
+                
+        @retval features Ndarray containing features, shape
+            n_particles x n_components
+        
+        """
+        # set up storage
+        m_features = np.zeros([self.config.N, len(self.shapes[shapename])])
+        
+        # add data
+        for ip in self.config.indices:
+            shape = self.get_features(shapename, ip)
+            if shape.get('is_valid'):
+                v_features = shape.get_vals(normalize)
+                m_features[ip] = v_features
+                
+        # return
+        return m_features
     
     def get_raw_match(self, shapename, particle_id = 'all'):
         """ Get match for particle(s) to a shape.
@@ -380,6 +408,7 @@ class Matcher():
         # this has the correct behavior for shapename=='all' or otherwise
         match_names = [class_names[i] for i in np.argmax(vals, axis=0)]
         match_vals = np.max(vals, axis=0)
+        logging.debug(match_vals)
         
         # step 3: apply match cutoff
         if do_filter:
@@ -398,6 +427,7 @@ class Matcher():
                     match_bools.append(0)
             match_names = best_match_names
             match_vals = match_bools
+        logging.debug(match_vals)
 
         # step 4: smooth
         if do_smoother:
@@ -434,7 +464,7 @@ class Matcher():
         @param particle_id String 'all' to classify all particles,
             or int to classify 1 particle
             
-        @retval class_labels List of ints in that are categorical labels
+        @retval class_labels Ndarray of ints in that are categorical labels
             for each particle (null class is 0)
         
         """
@@ -445,8 +475,9 @@ class Matcher():
                                                       do_smoother=True)
                                                       
         # convert into range(len(self.shapes.shape_names())
-        class_labels = [self.shapes.class_names().index(best_names[i])
-                        for i in range(len(is_matches))]
+        class_labels = np.asarray([self.shapes.class_names().index(best_names[i])
+                                   for i in range(len(is_matches))],
+                                   dtype=int)
         
         # return
         return class_labels
@@ -457,7 +488,7 @@ class Matcher():
             
         @param self The object pointer
         
-        @param class_labels Iterable of ints for class labels (0 is null class)
+        @param class_labels Ndarray of ints for class labels (0 is null class)
                 
         @retval areas Ndarray of floats with nm^2 of area matched,
             size is # of shapes
@@ -468,14 +499,16 @@ class Matcher():
         
         # each UnitCell shape knows its area, so use it
         if self.shapes.shape_type() is 'UnitCell':
-            for ishape, n_matched in self.count_matched(class_labels):
-                uc_area = self.shapes[self.shapes.names().index(ishape)].area()
+            for ishape, n_matched in enumerate(self.count_matched(class_labels)):
+                uc_area = self.shapes[self.shapes.names()[ishape]].area()
+                logging.debug('%s area %0.2f' % (self.shapes.names()[ishape],
+                                                 uc_area))
                 areas[ishape] = float(n_matched) * uc_area
 
         # or use Delaunay triangulation to estimate enclosed area
         else:    
             for ishape, sn in enumerate(self.shapes.names()):
-                ids = self.matched_particles(class_labels, sn)
+                ids = self.particles_matched(class_labels, sn)
                 if len(ids) > 0:
                     area, edges = self.delaunay_neighbors.area_of_point_set(ids,
                                                                     self.config.x[ids],
@@ -491,20 +524,16 @@ class Matcher():
         
         @param self The object pointer
         
-        @param class_labels Iterable of ints for class labels (0 is null class)
+        @param class_labels Ndarray of ints for class labels (0 is null class)
                 
         @retval counts Ndarray of ints for number of particles matched,
             size is # of shapes
         
         """
-        counts = np.bincount(class_labels)[1:]
-        n_to_pad = len(self.shapes.names()) - len(counts)
-        if n_to_pad == 0:
-            return counts
-        else:
-            return np.pad(counts, (0,n_to_pad), 'constant',
-                          constant_values=(0,0))
-        
+        classcounts = np.bincount(class_labels,
+                                  minlength=len(self.shapes.class_names()))
+        return classcounts[1:]
+
     def particles_matched(self, class_labels, shapename='all'):
         """ Gets the ids of particles that match each class, based on
             the provided class labels. If shapename is 'all', gets particles
@@ -512,7 +541,7 @@ class Matcher():
             
         @param self The object pointer
         
-        @param class_labels Iterable of ints for class labels (0 is null class)
+        @param class_labels Ndarray of ints for class labels (0 is null class)
                         
         @retval ndarray of ints for ids of particles matched
                 
@@ -522,5 +551,5 @@ class Matcher():
             return np.where(class_labels)[0]
         else:
             index = self.shapes.class_names().index(shapename)
-            return np.where(class_labels == index)[0]
+            return np.where(class_labels==index)[0]
         

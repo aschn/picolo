@@ -126,20 +126,19 @@ class ShapeDB:
         # forward request to classifier
         return self._classifier.compute_match(self._data[name], features)
 
-    def is_match(self, name, features):
+    def is_match(self, name, val):
         """ Get existence of good fit for features to shape name using classifer.
         
         @param self The object pointer
         
         @param name String for shape name
         
-        @param features Shape object to be matched
+        @param val Number for goodness of fit (ie result of compute_match)
         
         @retval Bool for validity of match
         
         """
         # forward request to classifier
-        val = self.compute_match(name, features)
         return self._classifier.is_match(self._data[name], val)
 
     def save(self, xmlf):

@@ -7,6 +7,8 @@
 
 # import from standard library
 import os
+import csv
+import os.path as path
 
 # import external packages
 import numpy as np
@@ -30,7 +32,8 @@ class Writer:
         @param matcher Matcher object
         
         """
-        self.matcher = matcher            
+        self.matcher = matcher    
+        self._cache = dict()        
     
     def _add_mask(self, ax):
         # draw mask if present
@@ -39,15 +42,15 @@ class Writer:
                        cmap=cm.gray, extent=self.matcher.mask.extent)
     
     def _save_fig(self, fig, fname):
-        if fname:
+        try:
             # save plot to file
-            fig.savefig(fname, transparent = True)
-            print "saved plot of best shapes to file %s" % (fname)
-        else:
+            fig.savefig(fname, transparent=True)
+            print "saved graphics to file %s" % (fname)
+        except (IOError, TypeError):
             # display plot on screen
             fig.show()              
     
-    def draw_classification(self, fname = None):
+    def draw_classification(self, fname=None):
         """ Plot classification shape labels for each particle in config,
             or save to file if fname is given.
         
@@ -65,17 +68,20 @@ class Writer:
         ax.set_ylabel('y position')
         
         # set up labels and colors
-        nshapes = len(self.matcher.shapes.class_names())
+        n_classes = len(self.matcher.shapes.class_names())
         possible_colors = ['white', 'red', 'blue', 'green', 'purple',
                            'orange', 'yellow', 'brown', 'pink', 'gray']
-        class_colors = possible_colors[0:nshapes]
+        class_colors = possible_colors[0:n_classes]
 
-        # compute and store values
-        class_labels = self.matcher.classify()
-        print zip(self.matcher.shapes.class_names(), np.bincount(class_labels))
+        # get class labels
+        try:        
+            class_labels = self._cache['class_labels']
+        except KeyError:
+            class_labels = self.matcher.classify()
+            self._cache['class_labels'] = class_labels
                
         # plot locations and order parameters
-        for ishape in range(nshapes):
+        for ishape in range(n_classes):
             xs = np.asarray(self.matcher.config.x)[class_labels==ishape]
             ys = np.asarray(self.matcher.config.y)[class_labels==ishape]
             ax.scatter(xs, ys, s=50, c=class_colors[ishape],
@@ -89,7 +95,7 @@ class Writer:
         # save plot to file
         self._save_fig(fig, fname)
         
-    def draw_unitcell_diagnostics(self, shapename, fname = None):
+    def draw_unitcell_diagnostics(self, shapename, fname=None):
         """ Create diagnostic plots for unit cell shapes.
         
         @param self The object pointer
@@ -179,7 +185,7 @@ class Writer:
         # save plot to file
         self._save_fig(fig, fname)
         
-    def draw_neighbors(self, neighbor_list, fname = None):
+    def draw_neighbors(self, neighbor_list, fname=None):
         """ Draw neighbor list to screen,
             or save to file if fname is given.
         
@@ -189,6 +195,7 @@ class Writer:
         
         @param fname String for filename in which to save plot image
             (image not saved by default)
+
         """
         # set up plot
         # set up plot
@@ -212,4 +219,102 @@ class Writer:
         
         # save plot to file
         self._save_fig(fig, fname)
+                       
+    def write_fractions_matched(self, fname=None):
+        """ Writes the fraction of valid area and the fraction of particles
+                that match each shape.
+            Appends to file if given; if file is empty, adds 1 header line.
+        
+        @param self The object pointer
+                
+        @param fname String for filename in which to write data
             
+        @retval 1 on successful write, or the list of fields that would have
+            been written on unsuccessful write
+
+        """
+        # get class labels
+        try:        
+            class_labels = self._cache['class_labels']
+        except KeyError:
+            class_labels = self.matcher.classify()
+            self._cache['class_labels'] = class_labels
+            
+        # get fractions of areas matched
+        areas_matched = self.matcher.areas_matched(class_labels)
+        total_area = float(self.matcher.mask.get_area())
+        area_fractions = areas_matched / total_area
+        
+        # get fractions of areas matched
+        n_matched = self.matcher.count_matched(class_labels)
+        total_n = float(self.matcher.config.N)
+        particle_fractions = n_matched / total_n
+        
+        # collect row of data
+        name = path.basename(self.matcher.name)
+        row = [name]
+        row += ['%0.3f' % val for val in area_fractions]
+        row += ['%0.3f' % val for val in particle_fractions]
+        row += ['%0.1f' % val for val in (total_area, total_n)]
+        
+        # try to open file
+        try:
+            outf = csv.writer(open(fname, 'a'), delimiter=' ')
+        except TypeError:
+            return row
+        except IOError:
+            raise IOError("Can't write to file %s" % fname)
+            
+        # write to csv
+        if path.getsize(fname) == 0:
+            header = ['# name']
+            header += ["fraction area in shape %s" % sn for sn in self.matcher.shapes.names()]
+            header += ["fraction particles in shape %s" % sn for sn in self.matcher.shapes.names()]
+            header += ["total area", "total particles"]
+            outf.writerow(header)
+        outf.writerow(row)
+
+        # finish and return        
+        print "saved data to file %s" % (fname)
+        return 1
+
+    def write_features(self, shapename, fname=None):
+        """ Writes the computed features for each particle to file.
+            Adds 1 header line.
+        
+        @param self The object pointer
+                
+        @param shapename String for shape name
+
+        @param fname String for filename in which to write data
+            
+        @retval 1 on successful write, or ndarray that would have been
+            written on unsuccessful write
+
+        """
+        # get class labels
+        try:        
+            features = self._cache['features']
+        except KeyError:
+            features = self.matcher.feature_matrix(shapename)
+            self._cache['features'] = features
+            
+       # try to open file
+        try:
+            outf = csv.writer(open(fname, 'w'), delimiter=' ')
+        except TypeError:
+            return features
+        except IOError:
+            raise IOError("Can't write to file %s" % fname)
+            
+        # write to csv
+        if path.getsize(fname) == 0:
+            header = ['# id ']
+            header += self.matcher.shapes[shapename].get_components()
+            outf.writerow(header)
+        for irow, row in enumerate(features):
+            outf.writerow([irow] + features)
+
+        # finish and return        
+        print "saved data to file %s" % (fname)
+        return 1

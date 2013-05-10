@@ -8,6 +8,7 @@
 
 # import from standard library
 import warnings
+import logging
 
 # import external packages
 import numpy as np
@@ -24,7 +25,7 @@ class Classifier:
         @param cutoff Float to set a minimum match value for a data point
             to be counted as a class member (default 0)
         """
-        self._rejection_cutoff = cutoff
+        self._rejection_cutoff = float(cutoff)
         
     def algorithm(self):
         """ Returns a string indicating the algorithm used. """
@@ -72,8 +73,10 @@ class Classifier:
         # use class_data's cutoff if it exists
         if hasattr(class_data, "cutoff"):
             cutoff = class_data.cutoff
+            logging.debug('using class cutoff %0.4f' % cutoff)
         else:
             cutoff = self._rejection_cutoff
+            logging.debug('using clf cutoff %0.4f' % cutoff)
             
         # compare value to cutoff
         if match_val > cutoff:
