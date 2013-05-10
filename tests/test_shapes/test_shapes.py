@@ -118,6 +118,7 @@ class TestRealShapes:
                                        math.radians(90.0), places=4)
         nose.tools.assert_almost_equal(self.uc.area(), 15.0*15.0, places=4)
         nose.tools.assert_equal(self.uc.get('type'), 'UnitCell')
+        nose.tools.assert_equal(self.uc.get_components(), ['a', 'b', 'degrees'])
         
     def test_fourier_factory(self):
         factory_shape = shape_factory_from_coords(self.coords, self.fourier)

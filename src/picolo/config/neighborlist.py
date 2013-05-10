@@ -7,6 +7,7 @@
 
 # import from standard library
 import itertools as it
+import math
 
 # import external packages
 import numpy as np
@@ -344,7 +345,7 @@ class DistNeighbors(NeighborList):
         
         @param self The object pointer
         
-        @param config Config object
+        @param config Config object, not used
         
         @retval dict with key = particle id,
             val = set of neighbor particle ids
@@ -378,14 +379,13 @@ class DistNeighbors(NeighborList):
         
         """
         # set up with correct distance
-        if dist != self._r:
+        if math.fabs(dist - self._r) > 1e-6:
             self._r = dist
-            self._compute()
+            self._neighbor_dict = self._compute()
             
         # return 
         return self.neighbors_of(particle_id)
 
-####################################################
 
 class DelaunayNeighbors(NeighborList):
     """ NeighborList with connections defined using the Delaunay triangulation. """

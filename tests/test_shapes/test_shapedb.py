@@ -6,6 +6,7 @@
 """
 
 import nose.tools
+import logging
 
 from picolo.shapes.shapedb import ShapeDB
 from picolo.shapes.shapes import shape_factory_from_values
@@ -14,6 +15,7 @@ from picolo.shapes.classifiers import classifier_factory
 class TestShapeDB:
 
     def setup(self):
+        logging.basicConfig(level=logging.DEBUG)
         self.db_default = ShapeDB()
         self.s = shape_factory_from_values('generic', ['a'], [2])
         self.db_one = ShapeDB()
@@ -55,7 +57,7 @@ class TestShapeDB:
     def test_match(self):
         matchval = self.db_one.compute_match('test', self.s)
         expected = classifier_factory().compute_match(self.db_one['test'], self.s)
-        ismatch = self.db_one.is_match('test', self.s)
+        ismatch = self.db_one.is_match('test', matchval)
         nose.tools.assert_almost_equal(matchval, expected)
         nose.tools.assert_false(ismatch)
         
@@ -76,6 +78,17 @@ class TestShapeDB:
             nose.tools.assert_true(self.db_default['test'].has_component(var))
         nose.tools.assert_greater(self.db_default._classifier._rejection_cutoff,
                                   0)
+        nose.tools.assert_true(self.db_default['test'].get('is_valid'))
+                                  
+    def test_match_uc(self):
+        self.db_default.load('tests/data/sample_db_uc.xml')
+        shape = self.db_default['test']
+        if not shape.get('is_valid'):
+            shape.put_param('is_valid', True)
+        val = self.db_default.compute_match('test', shape)
+        nose.tools.assert_almost_equal(val, 0.021164545311413662)
+        ismatch = self.db_default.is_match('test', val)
+        nose.tools.assert_true(ismatch)
 
     def test_init_w_file(self):
         sdb = ShapeDB('tests/data/sample_db_in.xml')

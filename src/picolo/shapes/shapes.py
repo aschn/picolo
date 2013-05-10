@@ -18,7 +18,7 @@ from scipy import optimize
 import matplotlib.pyplot as plt
 
 # import modules in this package
-from picolo.config import Coord
+from config import Coord
 
 class Shape:
     """ Base class for shape descriptors.
@@ -380,8 +380,9 @@ class UnitCellShape(Shape):
     """
     def _postprocessing(self):
         try:
-            if self.get('a') and self.get('b') and (self.get('theta')
-                                                    or self.get('degrees')):
+            if self.get('a') and self.get('b') and self.get('degrees'):
+                self.put_param('is_valid', True)
+            elif self.get('a') and self.get('b') and self.get('theta'):
                 self.put_param('is_valid', True)
             else:
                 self.put_param('is_valid', False)
@@ -406,11 +407,11 @@ class UnitCellShape(Shape):
             try:
                 self.get('theta')
             except KeyError:
-                self.put_component('theta', math.radians(self.get('degrees')))
+                self.put_param('theta', math.radians(self.get('degrees')))
             try:
                 self.get('degrees')
             except KeyError:
-                self.put_param('degrees', math.degrees(self.get('theta')))
+                self.put_component('degrees', math.degrees(self.get('theta')))
             
         # set type
         self.put_param('type', 'UnitCell')
@@ -475,8 +476,8 @@ class UnitCellShape(Shape):
         self.put_param('is_valid', True)
         self.put_component('a', a)
         self.put_component('b', b)
-        self.put_component('theta', math.radians(degrees))
-        self.put_param('degrees', degrees)
+        self.put_component('degrees', degrees)
+        self.put_param('theta', math.radians(degrees))
                     
     def _lattice_error(self, xy_tuple, coords, rcut):
         """ Get the error of the Bravais lattice described by the (x,y)
@@ -639,7 +640,7 @@ class UnitCellShape(Shape):
         elif self.get('is_valid'):
             return float(self.get('a')) * float(self.get('b')) * math.sin(self.get('theta'))
         else:
-            return 0
+            return 0.0
                     
 def shape_factory_from_values(shape_type, variables, vals, optdata=dict()):
     """ Factory function to create a shape given variable names and values.
