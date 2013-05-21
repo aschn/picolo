@@ -6,8 +6,8 @@
 """
 
 # import from standard library
-import csv
 import math
+import logging
 
 # import external packages
 import numpy as np
@@ -191,7 +191,16 @@ class Config:
                         ximages[image_ip] = self.x[ip] + ximage * self.Lx
                         yimages[image_ip] = self.y[ip] + yimage * self.Ly
         return ximages, yimages
-
+        
+    def _shell_areas(self, leftbins, binwidth):
+        """ Returns an ndarray containing the area of the 2d shells
+            that start at leftbins.
+        """
+        it = np.nditer([leftbins, None])
+        for x, y in it:
+            y[...] = math.pi * ((x+binwidth)*(x+binwidth) - x*x)
+        return it.operands[1]        
+        
     def is_tri_in_image(self, p0, p1, p2):
         """ Determine if three vertices form a triangle that is in the
             'minimum image'.
@@ -230,7 +239,7 @@ class Config:
         else:
             return False
 
-    def interior_particles(self, mask, cutoff_dist = None):
+    def interior_particles(self, mask, cutoff_dist=None):
         """ Compute number of particles at least cutoff_dist away from edge.
 
         @param self The object pointer
@@ -245,7 +254,7 @@ class Config:
         if cutoff_dist > 0:
             n = 0
             for ip in range(self.N):
-                if mask._is_interior(self.x[ip], self.y[ip], cutoff_dist):
+                if mask.is_interior(self.x[ip], self.y[ip], cutoff_dist):
                     n += 1
             return n
         else:
@@ -261,14 +270,14 @@ class Config:
         """
         return Coord(self.x[ip], self.y[ip])
 
-    def density(self, mask = None, cutoff_dist = None):
+    def density(self, mask=None, cutoff_dist=None):
         """ Compute particle density per nm^2.
 
         @param self The object pointer
         
         @param mask Mask object
         
-        @param cutoff_dist Float for max radial distance to consider, in nm
+        @param cutoff_dist Float for edge region to throw out, in nm
         
         @retval Float for particle density
         
@@ -276,11 +285,12 @@ class Config:
         # use mask if available and asked for
         if mask is not None:
 
-            n = self._get_interior_particles(mask, cutoff_dist=cutoff_dist)
-            area = mask.get_area(cutoff_dist)
+            n = self.interior_particles(mask, cutoff_dist=cutoff_dist)
+            area = mask.area(cutoff_dist)
             try:
                 return float(n) / area
             except ZeroDivisionError:
+                logging.debug('caught zero division error because area = %f' % area)
                 return 0
 
         # otherwise, use whole box area
@@ -288,22 +298,15 @@ class Config:
             return float(self.N) / self.Lx / self.Ly
 
 
-    def radial_distribution(self, fname, cutoff_dist = 60.0,
-                            binwidth = 1.0, mask = None, ips = None):
-        """ Compute g(r) and print to file (space-delimited csv).
+    def radial_distribution(self, cutoff_dist=60.0,
+                            binwidth=1.0, mask=None, ips=None):
+        """ Compute g(r) and return in a Nx3 array.
 
         Periodic boundary conditions used based on self.doPBC. \n
         Mask used based on availability and usemask.
-
-        output file format: \n
-        col1 distance, in nm \n
-        col2 g(r) at that distance \n
-        col3 counts at that distance \n
  
         @param self The object pointer
-        
-        @param fname String for filename to output g(r) to
-        
+                
         @param cutoff_dist Number for max radial distance to consider, in nm
         
         @param binwidth Number for histogram bin size, in nm
@@ -313,12 +316,9 @@ class Config:
         @param ips List of indices to use; default is self.indices
 
         """
-        # set up outfile
-        outfile = csv.writer(open(fname, 'wb'), delimiter=' ')
-
         # set up storage
         maxr = min(self.Lx * 0.5, self.Ly * 0.5, cutoff_dist)
-        bins = [i*binwidth for i in range(int(maxr/binwidth))]
+        bins = np.asarray([i*binwidth for i in range(int(maxr/binwidth))])
         counts = np.zeros(len(bins))
         g_norm = np.zeros(len(bins))
         n_particles = 0.0
@@ -348,50 +348,48 @@ class Config:
                     continue
                 
                 # get distance between particles, with or without PBC
-                dist = self._PBC_dist(self.x[ip], self.y[ip], self.x[jp], self.y[jp])
+                dist = self._PBC_dist(self.x[ip], self.y[ip],
+                                      self.x[jp], self.y[jp])
 
                 # add to histogram
                 if dist < maxr:
-                    for ibin in reversed(range(len(bins))):
+                    for ibin in reversed(range(bins.size)):
                         if dist > bins[ibin]:
                             counts[ibin] += 1
                             break
                     
         # normalize
-        area_in_bin = [math.pi*(bin+binwidth)*(bin+binwidth) - 
-                       math.pi*bin*bin for bin in bins]
+        area_in_bin = self._shell_areas(bins, binwidth)
         if usemask and ips == self.indices:
             bg_particles_per_area = self.density(mask, cutoff_dist=maxr)
+            logging.debug('masked bg density, cut=%0.2f' % maxr)
         elif mask is not None:
             bg_particles_per_area = self.density(mask, cutoff_dist=0)
+            logging.debug('masked bg density, all')
         else:
-            bg_particles_per_area = self.density(None, cutoff_dist=0)
-        g_norm =  counts / area_in_bin / bg_particles_per_area / n_particles
-        
-        # write to file
-        print "writing to", fname
-        for ibin in range(len(bins)):
-            outfile.writerow([bins[ibin]+0.5*binwidth,
-                              g_norm[ibin], counts[ibin]])
+            bg_particles_per_area = self.density()
+            logging.debug('unmasked bg density')
+        if np.min(area_in_bin) < 1e-8:
+            raise ZeroDivisionError("min shell area = %f ~ 0, can't normalize g(r)" % np.min(area_in_bin))
+        elif bg_particles_per_area < 1e-8:
+            raise ZeroDivisionError("particles/nm^2 = %f ~ 0, can't normalize g(r)" % bg_particles_per_area)
+        elif n_particles < 1e-8:
+            raise ZeroDivisionError("# particles = %f ~ 0, can't normalize g(r)" % n_particles)
+        else:
+            g_norm =  counts / area_in_bin / bg_particles_per_area / n_particles
 
-    def nearest_neighbor_distribution(self, fname, cutoff_dist = 35.0,
-                                      binwidth = 1.0, mask = None,
-                                      ips = None):
+        # collect and return
+        bin_centers = bins + 0.5*binwidth
+        to_return = np.column_stack((bin_centers, g_norm, counts))
+        return to_return
+        
+    def nearest_neighbor_distribution(self, cutoff_dist=35.0,
+                                      binwidth=1.0, mask=None, ips=None):
         """ Compute histogram of nearest-neighbor distances
-            and print to file (space-delimited csv).
+            and return in a Nx3 array.
 
-        Periodic boundary conditions used based on self.doPBC. \n
-        Mask used based on availability and usemask.
-
-        output file format: \n
-        col1 distance, in nm \n
-        col2 probability of NN distance \n
-        col3 counts at that distance \n
- 
         @param self The object pointer
-        
-        @param fname String for filename to output to
-        
+                
         @param cutoff_dist Number for min distance to edge to consider, in nm
         
         @param binwidth Number for histogram bin size, in nm
@@ -401,12 +399,9 @@ class Config:
         @param ips List of indices to use; default is self.indices
         
         """
-        # set up outfile
-        outfile = csv.writer(open(fname, 'wb'), delimiter=' ')
-
         # set up storage
         maxr = min(self.Lx * 0.5, self.Ly * 0.5, cutoff_dist)
-        bins = [i*binwidth for i in range(int(maxr/binwidth))]
+        bins = np.asarray([i*binwidth for i in range(int(maxr/binwidth))])
         counts = np.zeros(len(bins))
         prob_norm = np.zeros(len(bins))
 
@@ -449,7 +444,7 @@ class Config:
                     min_dist = dist
 
             # add to histogram
-            for ibin in reversed(range(len(bins))):
+            for ibin in reversed(range(bins.size)):
                 if min_dist > bins[ibin]:
                     counts[ibin] += 1
                     break
@@ -457,10 +452,7 @@ class Config:
         # normalize
         prob_norm =  counts / max(np.sum(counts), 1.0)
         
-        # write to file
-        print "writing to", fname
-        for ibin in range(len(bins)):
-            outfile.writerow([ bins[ibin]+0.5*binwidth, prob_norm[ibin],
-                               counts[ibin] ])
-
-
+        # collect and return
+        bin_centers = bins + 0.5*binwidth
+        to_return = np.column_stack((bin_centers, prob_norm, counts))
+        return to_return

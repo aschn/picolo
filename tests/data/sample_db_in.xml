@@ -5,5 +5,8 @@
                 <boolvar type="is_valid">False</boolvar>
                 <floatvar type="max_dist">30</floatvar>
                 <textvar type="type">Generic</textvar>
-		</class-shape>
+		<listvar type="rules">
+		  <csvvar>'b',2,'eq'</csvvar>
+		</listvar>
+	</class-shape>
 </data>

@@ -198,21 +198,49 @@ class ShapeDB:
             optdata = dict()
             optdata['type'] = shape_type
             for child in shape_elt.findall('./*'):
-                if child.tag in ['p', 'boolvar']:
-                    optdata[child.get('type').strip()] = bool(child.text)
-                elif child.tag in ['floatvar']:
-                    vtype = child.get('type').strip()
-                    optdata[vtype] = float(child.text)
-                elif child.tag in ['csvvar']:
-                    vtype = child.get('type').strip()
-                    optdata[vtype] = [float(x) for x in child.text.split(',')]
-                else: # process as text
-                    optdata[child.get('type').strip()] = child.text.strip()
+                key = child.get('type').strip()
+                data = self._parse_elt(child)
+                optdata[key] = data
 
             # create and add shape
             shape = shape_factory_from_values(shape_type, variables,
                                               vals, optdata)
             self.add(name, shape)
+            
+    def _parse_elt(self, elt):
+        """ Parse xml elements based on the tag.
+            If the tag is listvar, boolvar, floatvar, or csvvar,
+            parse as that type.
+            Anything else is treated as text.
+        
+        @param elt xml element from ElementTree
+        
+        @retval data Data in elt.text or its children
+        
+        """
+        if elt.tag in ['listvar']: # process recursively
+            data = [self._parse_elt(child) for child in elt.findall('./*')]
+            
+        elif elt.tag in ['boolvar']: # process as boolean
+            data = bool(elt.text)
+            
+        elif elt.tag in ['floatvar']: # process as float
+            data = float(elt.text)
+            
+        elif elt.tag in ['csvvar']: # process as comma-separated list
+            tmpdata = elt.text.split(',')
+            data = []
+            for val in tmpdata:
+                if "'" in val:
+                    data.append(val.strip("'"))
+                else:
+                    data.append(float(val))
+                    
+        else: # process as text
+            data = elt.text.strip()
+        
+        # return
+        return data
 
     def _shape2xml(self, name):
         """ Set up xml DOM element for shape name.

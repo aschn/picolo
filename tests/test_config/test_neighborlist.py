@@ -19,17 +19,17 @@ class TestNeighborList:
 
         # set up config
         coords = np.genfromtxt('tests/data/sample_config.xy')
-        config = Config(coords[:,0], coords[:,1],
+        self.config = Config(coords[:,0], coords[:,1],
                         pbc=False, lx=Lx, ly=Ly)
                      
         # set up mask
         infile = 'tests/data/sample_mask.tif'
         mask = Mask(infile, Lx, Ly)
 
-        self.neighborlist_default = NeighborList(config)
-        self.neighborlist_masked = NeighborList(config, mask)
-        self.neighborlist_delaunay = DelaunayNeighbors(config, mask)
-        self.neighborlist_dist = DistNeighbors(config, mask=mask, dist=30)
+        self.neighborlist_default = NeighborList(self.config)
+        self.neighborlist_masked = NeighborList(self.config, mask)
+        self.neighborlist_delaunay = DelaunayNeighbors(self.config, mask)
+        self.neighborlist_dist = DistNeighbors(self.config, mask=mask, dist=30)
         
     def test_init(self):
         assert self.neighborlist_default.is_masked == False
@@ -96,4 +96,12 @@ class TestNeighborList:
         for i in range(10):
             nose.tools.assert_true(i in set.union(*clusters))
             
-        
+    def test_delaunay_area(self):
+        n = int(self.config.N/2)
+        ips = range(n)
+        area, edges = self.neighborlist_delaunay.area_of_point_set(ips,
+                                                                   self.config.x,
+                                                                   self.config.y)
+        nose.tools.assert_almost_equal(area, 39380.5657034)
+        nose.tools.assert_equal(len(edges[0]), len(edges[1]))
+        nose.tools.assert_equal(len(edges[0]), 456)

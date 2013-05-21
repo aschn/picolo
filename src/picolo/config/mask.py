@@ -8,7 +8,7 @@
 # import from standard library
 import collections
 import os
-import warnings
+import logging
 
 # import external packages
 import numpy as np
@@ -25,7 +25,7 @@ class Mask:
 
     """
     ##    
-    # @var mask 
+    # @var mask_for_show
     # @brief ndarray of bools, True inside valid regions, False outside
     #
     # @var cf_px2nm 
@@ -34,11 +34,6 @@ class Mask:
     # @var cf_nm2px 
     # @brief Float for conversion factor of nm to pixels
     #                                 
-    # @var boundary_kdtree 
-    # @brief scipy.spatial.KDTree of points on boundary
-    #
-    # @var px_to_edge 
-    #
     # @var extent 
     # @brief Tuple of numbers, (xmin, xmax, ymin, ymax)
                                  
@@ -60,16 +55,15 @@ class Mask:
         try:
             im = plt.imread(imfile)
         except IOError:
-            warnings.warn('No file found at %s, setting mask to all valid.' % repr(imfile),
-                          RuntimeWarning)
+            logging.warn('No file found at %s, setting mask to all valid.' % repr(imfile))
             im = np.ones([Ly, Lx])
 
         # convert to Cartesian coordinate form
         # x = 1st dim, y = 2nd dim
         # origin = lower left for indexing
         newim = im.copy()
-        self.im = np.swapaxes(newim, 0,1)
-        self.mask = self.im > 0
+        self._im = np.swapaxes(newim, 0,1)
+        self._mask = self._im > 0
 
         # set up images with origin for nice imshow behavior
         self.im_for_show = im[::-1]
@@ -83,15 +77,15 @@ class Mask:
 
         if os.path.isfile(self.edgefile):
             # read pxToEdge from file
-            self.px_to_edge = np.genfromtxt(self.edgefile, unpack=True)
+            self._px_to_edge = np.genfromtxt(self.edgefile, unpack=True)
             print "read pixel edge info from file", self.edgefile
 
         else:
             # don't set up edge masks yet
-            self.px_to_edge = None
+            self._px_to_edge = None
             
         # set up boundary holder
-        self.boundary_kdtree = None
+        self._boundary_kdtree = None
 
     def _set_units(self, Lx, Ly):
         """ Set box size and unit conversions.
@@ -108,10 +102,10 @@ class Mask:
         assert(Ly > 0)
 
         # find x and y conversions
-        x_px2nm = float(self.mask.shape[0]) / float(Lx)
-        x_nm2px = float(Lx) / float(self.mask.shape[0])
-        y_px2nm = float(self.mask.shape[1]) / float(Ly)
-        y_nm2px = float(Ly) / float(self.mask.shape[1])
+        x_px2nm = float(self._mask.shape[0]) / float(Lx)
+        x_nm2px = float(Lx) / float(self._mask.shape[0])
+        y_px2nm = float(self._mask.shape[1]) / float(Ly)
+        y_nm2px = float(Ly) / float(self._mask.shape[1])
 
         # test for equality within rounding error
         assert(abs(x_px2nm - y_px2nm) < 1e-4)
@@ -206,24 +200,26 @@ class Mask:
         @param self The object pointer
         
         """
-        # set up distances to edges
-        px_to_edge = np.zeros_like(self.mask, dtype=np.float)
-
-        # set up boundary tree
-        self._set_boundary()
-        print "computing distances from %d valid pixels to %d edge pixels, this may take a bit..." % (
-            np.count_nonzero(self.mask), self.boundary_kdtree.data.shape[0])
-
-        # loop over True indices in mask
-        for xp, yp in np.transpose(np.nonzero(self.mask)):
-            # save distance from pixel to edge
-            px_to_edge[xp,yp] = self.dist_to_edge(xp, yp, units='px')
-
-        # store 
-        self.px_to_edge = px_to_edge
-
-        # test
-        print "max dist from edge is %d px = %d nm" % (np.amax(self.px_to_edge), np.amax(self.pxToEdge)*self.cf_px2nm)
+        if self._px_to_edge is None:
+            # set up distances to edges
+            px_to_edge = np.zeros_like(self._mask, dtype=np.float)
+    
+            # set up boundary tree
+            self._set_boundary()
+            logging.info("computing distances from %d valid pixels to %d edge pixels, this may take a bit..." % (
+                         np.count_nonzero(self._mask), self._boundary_kdtree.data.shape[0]))
+    
+            # loop over True indices in mask
+            for xp, yp in np.transpose(np.nonzero(self._mask)):
+                # save distance from pixel to edge
+                px_to_edge[xp,yp] = self.dist_to_edge(xp, yp, units='px')
+    
+            # store 
+            self._px_to_edge = px_to_edge
+    
+            # test
+            logging.debug("max dist from edge is %d px = %d nm" % (np.amax(self._px_to_edge),
+                                                                   np.amax(self._px_to_edge)*self.cf_px2nm))
 
     def _set_boundary(self):
         """ Set up kd tree of mask boundary points.
@@ -231,34 +227,34 @@ class Mask:
         @param self The object pointer
         
         """
-        if self.boundary_kdtree:
-            return
+        if self._boundary_kdtree:
+            pass
             
         else:
             # set up storage and initialize with image edges
             boundary_pairs = []
-            for xp in range(0, self.mask.shape[0]):
+            for xp in range(0, self._mask.shape[0]):
                 boundary_pairs.append([xp, -1])
-                boundary_pairs.append([xp, self.mask.shape[1]])
-            for yp in range(0, self.mask.shape[1]):
+                boundary_pairs.append([xp, self._mask.shape[1]])
+            for yp in range(0, self._mask.shape[1]):
                 boundary_pairs.append([-1, yp])
-                boundary_pairs.append([self.mask.shape[0], yp])
+                boundary_pairs.append([self._mask.shape[0], yp])
     
             # loop over all invalid points
-            for xp, yp in np.transpose(np.nonzero(self.mask == False)):
+            for xp, yp in np.transpose(np.nonzero(self._mask == False)):
                 # set up neighbors to right, left, top, and bottom
                 inds = [[xp+1,yp], [xp-1,yp], [xp,yp+1], [xp,yp-1]]
                 
                 # loop over neighbors
                 for nxp, nyp in inds:
                     # if neighbor indices in array, test for edge
-                    if nxp >= 0 and nyp >= 0 and nxp < self.mask.shape[0] and nyp < self.mask.shape[1]:
-                        if self.mask[nxp,nyp]:
+                    if nxp >= 0 and nyp >= 0 and nxp < self._mask.shape[0] and nyp < self._mask.shape[1]:
+                        if self._mask[nxp,nyp]:
                             boundary_pairs.append([xp,yp])
                             break
                    
             # set up kd tree
-            self.boundary_kdtree = spatial.KDTree(np.asarray(boundary_pairs))
+            self._boundary_kdtree = spatial.KDTree(np.asarray(boundary_pairs))
 
     def write_edges(self, outfile=None):
         """ Write to file the distance from each pixel to the closest edge.
@@ -276,7 +272,7 @@ class Mask:
             outfile = self.edgefile
         
         # write pxToEdge to file for later
-        np.savetxt(outfile, self.px_to_edge, fmt="%4.3f")
+        np.savetxt(outfile, self._px_to_edge, fmt="%4.3f")
 
     def dist_to_edge(self, xc, yc, units='nm'):
         """ Find distance from point to nearest boundary point.
@@ -304,18 +300,18 @@ class Mask:
             xp, yp = xc, yc
             
         # if already boundary, return 0
-        if not self.mask[xp,yp]:
+        if not self._mask[xp,yp]:
             dist_px = 0
 
         # is pxToEdge set, use it
-        elif self.px_to_edge is not None:
-            dist_px = self.px_to_edge[xp,yp]
+        elif self._px_to_edge is not None:
+            dist_px = self._px_to_edge[xp,yp]
 
         # or just calculate from scratch
         else:
             # use KD tree to find distance from point to edge
             self._set_boundary()
-            dist_px, id_at_edge = self.boundary_kdtree.query([xp,yp])
+            dist_px, id_at_edge = self._boundary_kdtree.query([xp,yp])
 
         # return in correct units
         if units == 'nm':
@@ -371,7 +367,7 @@ class Mask:
         xp2, yp2 = self._point_nm2px(x2, y2)
 
         # if endpoints are already boundary, return False
-        if not np.all(self.mask[[xp1,xp2],[yp1,yp2]]):
+        if not np.all(self._mask[[xp1,xp2],[yp1,yp2]]):
             return False
 
         # find relative positions of points
@@ -394,14 +390,14 @@ class Mask:
             xs = np.array(np.rint(fxs), dtype=int)
 
         # test if line segment is outside mask
-        if not np.all(self.mask[xs,ys]):
+        if not np.all(self._mask[xs,ys]):
             # if outside, return False
             return False
         else: 
             # if inside return True
             return True
 
-    def get_area(self, cutoff_dist=None):
+    def area(self, cutoff_dist=None):
         """ Compute and return unmasked (valid) area.
 
         @param self The object pointer
@@ -415,11 +411,13 @@ class Mask:
         n = 0
 
         if cutoff_dist:
+            if self._px_to_edge is None:
+                self._set_edges()
             # count valid pixels in the correct edge mask
-            n = np.count_nonzero(self.px_to_edge > cutoff_dist)
+            n = np.count_nonzero(self._px_to_edge*self.cf_px2nm > cutoff_dist)
         else:
             # count valid pixels in full mask
-            n = np.count_nonzero(self.mask)
+            n = np.count_nonzero(self._mask)
 
         # convert to number of pixels to area
         area = float(n) * self.cf_px2nm**2
