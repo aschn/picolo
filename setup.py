@@ -10,7 +10,7 @@ setup(
                  'config': 'src/picolo/config',
                  'shapes': 'src/picolo/shapes'
                  },
-   # scripts=['bin/script.py'],
+    #scripts=['bin/script.py'],
     #package_data={'mypkg': ['data/*.dat']},
     url='https://github.com/aschn/picolo',
     license='LICENSE.txt',

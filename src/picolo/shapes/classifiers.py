@@ -41,7 +41,7 @@ class Classifier:
         
         @param test_data Shape-like object holding data to describe test data point
 
-        @retval float >= 0
+        @retval matchval float >= 0
 
         """            
         # compute match if test data is valid
@@ -132,7 +132,7 @@ class SVMClassifier(Classifier):
         match_val = np.dot(class_arr, test_arr) + class_data.get('intercept')
         
         # return
-        return match_val
+        return max(match_val, 0.0)
             
 class GMMClassifier(Classifier):
     """ Classifier that implements a Gaussian mixture model with a maximum
@@ -177,16 +177,97 @@ class GMMClassifier(Classifier):
         return prob                       
        
        
+class CARTClassifier(Classifier):
+    """ Classifier that implements a classification tree (CART).
+        Uses a tree of decision rules to classify shapes.  
+        
+        Decision rules are stored in the 'rules' property of Shape.
+        Format is shape.get('rules') = [('var', val, 'op'), ...]
+        where 'var' is the name of a parameter to compare to,
+        val is the value to compare to,
+        and 'op' is a string indicating the comparison operator.
+        The options for operators are ('eq', 'ne', 'gt', 'ge', 'lt', 'le'),
+        with the same meanings as in a bash if statement.
+        All comparisons must evaluate to True in order for is_match to be True.
+
+    """            
+    def algorithm(self):
+        """ Returns a string indicating the algorithm used. """
+        return 'CART'
+   
+    def compute_match(self, class_data, test_data):
+        """ Return value of match of a test data point to a class.
+            1 if all decision rules are satisfied; 0 any rule fails.
+                    
+        @param self The object pointer
+        
+        @param class_data Shape-like object holding data to describe class
+        
+        @param test_data Shape-like object holding data to describe test data point
+
+        @retval matchval float 0 or 1
+
+        """            
+        # get vector of decision rules for class
+        rules = class_data.get('rules')
+        
+        # get value of data to test against each rule
+        test_vals = np.asarray([test_data.get(rule[0]) for rule in rules])
+
+        # return match
+        return self._match(class_data, test_vals)
+            
+    def _match(self, class_data, test_arr):
+        """ Calculates the match.
+        
+        @param self The object pointer
+
+        @param class_data Object with attributes vals and intercept
+        
+        @param test_arr ndarray of features
+
+        """        
+        # get vector of decision rules for class
+        rules = class_data.get('rules')
+
+        # test for failing rules
+        for irule, rule in enumerate(rules):
+            if rule[2] == 'eq': # equality
+                if test_arr[irule] != rule[1]:
+                    return 0.0                
+            elif rule[2] == 'ne': # inequality
+                if test_arr[irule] == rule[1]:
+                    return 0.0                
+            elif rule[2] == 'gt': # greater than
+                if test_arr[irule] <= rule[1]:
+                    return 0.0                
+            elif rule[2] == 'ge': # greater than or equal to
+                if test_arr[irule] < rule[1]:
+                    return 0.0                
+            elif rule[2] == 'lt': # less than
+                if test_arr[irule] >= rule[1]:
+                    return 0.0                
+            elif rule[2] == 'le': # less than or equal to
+                if test_arr[irule] > rule[1]:
+                    return 0.0                
+            else:
+                raise ValueError("Invalid operator %s in decision rule %d" % (rule[2], irule))
+                
+        # return passing
+        return 1.0
+       
 def classifier_factory(classifier_type='default', cutoff=0):
     """ Function to create a classifier. Valid types must contain the substrings
         'default' (for default with no algorithm),
         'GMM' (for Gaussian Mixture Model), or
-        'SVM' (for Support Vector Machine); case insensitive.
+        'SVM' (for Support Vector Machine), or
+        'CART' or 'Tree' (for Classifier Tree);
+        case insensitive.
     
     @param classifier_type String specifying a valid classifier type
     
     @param cutoff Number for rejection cutoff; valid matches must have a
-        score above this value
+        score above this value. Disregarded for classifier tree.
         
     @retval Classifier object
     
@@ -197,6 +278,8 @@ def classifier_factory(classifier_type='default', cutoff=0):
         return GMMClassifier(cutoff)
     elif 'svm' in lower_case_str:
         return SVMClassifier(cutoff)
+    elif ('cart' in lower_case_str) or ('tree' in lower_case_str):
+        return CARTClassifier(0.5)
     elif 'default' in lower_case_str:
         return Classifier(cutoff)
     else:

@@ -33,7 +33,7 @@ class TestMatcherNull:
 
     def test_initialize_mask(self):
         self.matcher.initialize_mask('tests/data/sample_mask.tif', 500, 500)
-        nose.tools.assert_greater(len(self.matcher.mask.mask), 0)
+        nose.tools.assert_greater(self.matcher.mask.area(), 0)
         
     def test_initialize_shapes(self):
         self.matcher.initialize_shapes('tests/data/sample_db_in.xml')
@@ -84,7 +84,7 @@ class TestMatcherReal:
         nose.tools.assert_equal(self.matcher_uc.name, 'tester')
         nose.tools.assert_equal(self.matcher_uc.training_ids, [])
         nose.tools.assert_equal(len(self.matcher_uc.shapes), 1)
-        nose.tools.assert_almost_equal(self.matcher_uc.mask.get_area(), 107067)
+        nose.tools.assert_almost_equal(self.matcher_uc.mask.area(), 107067)
         nose.tools.assert_equal(self.matcher_uc.config.N, self.n)
         nose.tools.assert_greater(len(self.matcher_uc.delaunay_neighbors), 0)
         nose.tools.assert_equal(len(self.matcher_uc.dist_neighbors), self.n)

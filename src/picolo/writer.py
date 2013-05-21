@@ -50,6 +50,28 @@ class Writer:
             # display plot on screen
             fig.show()              
     
+    def _write_csv(self, fname, data, header=None, append=False):
+        # open file
+        try:
+            if append:
+                outf = csv.writer(open(fname, 'a'), delimiter=' ')
+            else:
+                outf = csv.writer(open(fname, 'w'), delimiter=' ')
+        except TypeError:
+            return False
+        except IOError:
+            raise IOError("Can't write to file %s" % fname)   
+            
+        # write header
+        if header:
+            outf.writerow(header)
+        
+        # write data
+        outf.writerows(data)
+        
+        # return success
+        return True
+    
     def draw_classification(self, fname=None):
         """ Plot classification shape labels for each particle in config,
             or save to file if fname is given.
@@ -220,11 +242,69 @@ class Writer:
         # save plot to file
         self._save_fig(fig, fname)
                        
-    def write_fractions_matched(self, fname=None):
-        """ Writes the fraction of valid area and the fraction of particles
-                that match each shape.
+    def write_fraction_particles_matched(self, fname=None):
+        """ Writes the fraction of particles that match each shape.
             Appends to file if given; if file is empty, adds 1 header line.
         
+        output file format: \n
+        col1 shape name \n
+        col2 total number of particles \n
+        col3 fraction of particles that match 1st shape \n
+        col4 fraction of particles that match 2nd shape \n
+        etc
+
+        @param self The object pointer
+                
+        @param fname String for filename in which to write data
+            
+        @retval 1 on successful write, or the list of fields that would have
+            been written on unsuccessful write
+
+        """
+        # get class labels
+        try:        
+            class_labels = self._cache['class_labels']
+        except KeyError:
+            class_labels = self.matcher.classify()
+            self._cache['class_labels'] = class_labels
+            
+        # get fractions of particles matched
+        n_matched = self.matcher.count_matched(class_labels)
+        total_n = float(self.matcher.config.N)
+        particle_fractions = n_matched / total_n
+        
+        # collect row of data
+        name = path.basename(self.matcher.name)
+        row = [name]
+        row += ['%0.1f' % total_n]
+        row += ['%0.3f' % val for val in particle_fractions]
+        
+        # collect header
+        header = ["'name'"]
+        header += ["total particles"]
+        header += ["fraction particles in shape %s" % sn for sn in self.matcher.shapes.names()]
+        
+        # write
+        success = self._write_csv(fname, row, header=header, append=True)
+        
+        # finish
+        if success:
+            print "saved data to file %s" % (fname)
+            return 1
+        else:
+            return row
+        
+    def write_fraction_area_matched(self, fname=None):
+        """ Writes the fraction of valid area that matches each shape.
+            Appends to file if given; if file is empty, adds 1 header line.
+        
+        output file format: \n
+        col1 shape name \n
+        col2 total  valid area \n
+        col3 fraction of area that matches 1st shape \n
+        col4 fraction of area that matches 2nd shape \n
+        etc
+
         @param self The object pointer
                 
         @param fname String for filename in which to write data
@@ -242,46 +322,40 @@ class Writer:
             
         # get fractions of areas matched
         areas_matched = self.matcher.areas_matched(class_labels)
-        total_area = float(self.matcher.mask.get_area())
+        total_area = float(self.matcher.mask.area())
         area_fractions = areas_matched / total_area
-        
-        # get fractions of areas matched
-        n_matched = self.matcher.count_matched(class_labels)
-        total_n = float(self.matcher.config.N)
-        particle_fractions = n_matched / total_n
-        
+                
         # collect row of data
         name = path.basename(self.matcher.name)
         row = [name]
+        row += ['%0.1f' % total_area]
         row += ['%0.3f' % val for val in area_fractions]
-        row += ['%0.3f' % val for val in particle_fractions]
-        row += ['%0.1f' % val for val in (total_area, total_n)]
         
-        # try to open file
-        try:
-            outf = csv.writer(open(fname, 'a'), delimiter=' ')
-        except TypeError:
-            return row
-        except IOError:
-            raise IOError("Can't write to file %s" % fname)
-            
-        # write to csv
-        if path.getsize(fname) == 0:
-            header = ['# name']
-            header += ["fraction area in shape %s" % sn for sn in self.matcher.shapes.names()]
-            header += ["fraction particles in shape %s" % sn for sn in self.matcher.shapes.names()]
-            header += ["total area", "total particles"]
-            outf.writerow(header)
-        outf.writerow(row)
+        # collect header
+        header = ["'name'"]
+        header += ["total area"]
+        header += ["fraction area in shape %s" % sn for sn in self.matcher.shapes.names()]
 
-        # finish and return        
-        print "saved data to file %s" % (fname)
-        return 1
+        # write
+        success = self._write_csv(fname, row, header=header, append=True)
+        
+        # finish
+        if success:
+            print "saved data to file %s" % (fname)
+            return 1
+        else:
+            return row
 
     def write_features(self, shapename, fname=None):
         """ Writes the computed features for each particle to file.
             Adds 1 header line.
         
+        output file format: \n
+        col1 particle id number \n
+        col2 value of 1st component of feature vector \n
+        col3 value of 2nd component of feature vector \n
+        etc
+
         @param self The object pointer
                 
         @param shapename String for shape name
@@ -289,32 +363,123 @@ class Writer:
         @param fname String for filename in which to write data
             
         @retval 1 on successful write, or ndarray that would have been
-            written on unsuccessful write
+            written on unsuccessful write (without col1)
 
         """
-        # get class labels
+        # get features
         try:        
             features = self._cache['features']
         except KeyError:
             features = self.matcher.feature_matrix(shapename)
             self._cache['features'] = features
             
-       # try to open file
-        try:
-            outf = csv.writer(open(fname, 'w'), delimiter=' ')
-        except TypeError:
-            return features
-        except IOError:
-            raise IOError("Can't write to file %s" % fname)
-            
-        # write to csv
-        if path.getsize(fname) == 0:
-            header = ['# id ']
-            header += self.matcher.shapes[shapename].get_components()
-            outf.writerow(header)
-        for irow, row in enumerate(features):
-            outf.writerow([irow] + features)
+        # collect header
+        header = ["'id'"]
+        header += self.matcher.shapes[shapename].get_components()
 
-        # finish and return        
-        print "saved data to file %s" % (fname)
-        return 1
+        # collect data
+        nrows = features.shape[0]
+        data = np.column_stack((np.linspace(0, nrows-1, nrows),
+                                features))  
+        
+        # write
+        success = self._write_csv(fname, data, header)
+        
+        # finish
+        if success:
+            print "saved data to file %s" % (fname)
+            return 1
+        else:
+            return features
+
+    def write_radial_distribution(self, fname=None,
+                                  max_dist=60.0, usemask=False):
+        """ Writes the radial distribution function, ie g(r), to file.
+            Adds 1 header line.
+        
+        Periodic boundary conditions used based on self.doPBC. \n
+        Mask used based on availability and usemask.
+
+        output file format: \n
+        col1 distance, in nm \n
+        col2 g(r) at that distance \n
+        col3 counts at that distance \n
+
+        @param self The object pointer
+                
+        @param fname String for filename in which to write data
+                    
+        @param max_dist Number for maximum separation to consider        
+        
+        @param usemask Bool for whether or not to discard points within 
+            max_dist of the edge of the masked-out region
+            
+        @retval 1 on successful write, or ndarray that would have been
+            written on unsuccessful write
+                    
+        """ 
+        # compute g(r)
+        if usemask:
+            gr = self.matcher.config.radial_distribution(mask=self.matcher.mask,
+                                                         cutoff_dist=max_dist)
+        else:
+            gr = self.matcher.config.radial_distribution(mask=None,
+                                                         cutoff_dist=max_dist)
+            
+        # collect header
+        header = ["distance (nm)", "'g(r)'", "particle count"]
+        
+        # write
+        success = self._write_csv(fname, gr, header)
+        
+        # finish
+        if success:
+            print "saved data to file %s" % (fname)
+            return 1
+        else:
+            return gr
+
+
+    def write_nearest_neighbor_distribution(self, fname=None,
+                                            max_dist=35.0, usemask=False):
+        """ Writes the nearest-neighbor distribution function to file.
+            Adds 1 header line.
+        
+        output file format: \n
+        col1 distance, in nm \n
+        col2 probability of NN distance \n
+        col3 counts at that distance \n
+
+        @param self The object pointer
+                
+        @param fname String for filename in which to write data
+        
+        @param max_dist Number for maximum separation to consider        
+        
+        @param usemask Bool for whether or not to discard points within 
+            max_dist of the edge of the masked-out region
+            
+        @retval 1 on successful write, or ndarray that would have been
+            written on unsuccessful write
+                    
+        """ 
+        # compute nearest-neighbor distribution
+        if usemask:
+            nnd = self.matcher.config.nearest_neighbor_distribution(mask=self.matcher.mask,
+                                                         cutoff_dist=max_dist)
+        else:
+            nnd = self.matcher.config.nearest_neighbor_distribution(mask=None,
+                                                         cutoff_dist=max_dist)
+        
+        # collect header
+        header = ["distance (nm)", "probability of NN", "particle count"]
+        
+        # write
+        success = self._write_csv(fname, nnd, header)
+        
+        # finish
+        if success:
+            print "saved data to file %s" % (fname)
+            return 1
+        else:
+            return nnd

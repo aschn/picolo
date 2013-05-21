@@ -11,6 +11,7 @@ import math
 import copy
 import itertools
 import warnings
+import logging
 
 # import external packages
 import numpy as np
@@ -84,7 +85,9 @@ class Shape:
         elif var_name in self._params:
             return self._params[var_name]
         else:
-            raise KeyError('Nothing found for %s' % str(var_name))
+            raise KeyError('Nothing found for %s in vars (%s) or params (%s)' % (str(var_name),
+                                                                             ', '.join(self._var_names),
+                                                                             ', '.join(self._params.keys())))
                                 
     def get_vals(self, norm=False):
         """ Returns ndarray of values, normalized only if requested. """

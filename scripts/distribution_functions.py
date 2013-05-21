@@ -3,13 +3,18 @@
 """
 @author Anna Schneider
 @version 0.1
-@brief Typical script using picolo to classify local order of point particles
+@brief Typical script using picolo to calculate masked distribution functions
+    of point particles
 """
 
 import picolo
 import argparse
 import os.path as path
 import time
+import logging
+
+# start logging
+logging.basicConfig(level=logging.DEBUG)
 
 # start timer
 start = time.time()
@@ -34,17 +39,13 @@ matcher = picolo.Matcher(args.filename, delim=' ', lx=args.Lx, ly=args.Ly,
                          name=rootname)
 writer = picolo.Writer(matcher)
 
-# draw classification graphic
-writer.draw_classification(rootname+'_match_to_best.pdf')
+# write radial distribution function
+writer.write_radial_distribution(rootname+'_gofr.dat',
+                                 usemask=True, max_dist=45.0)
 
-# append fraction of particles and area that match each class to log
-writer.write_fraction_particles_matched(path.join(dirname,
-                                                  'xtal_particles_log.dat'))
-writer.write_fraction_area_matched(path.join(dirname,
-                                             'xtal_area_log.dat'))
-
-# write features to file
-writer.write_features(matcher.shapes.class_names()[-1], rootname+'_features.dat')
+# write nearest neighbor distribution function
+writer.write_nearest_neighbor_distribution(rootname+'_nnd.dat',
+                                           usemask=True, max_dist=35.0)
 
 # end timer
 end = time.time()

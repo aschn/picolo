@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+<data classifier-type="CART" cutoff="0.5" shape-type="UnitCell">
+        <class-shape name="valid">
+                <component type='a'>0</component>
+                <component type='b'>0</component>
+                <component type='degrees'>0</component>
+                <floatvar type='neighbor_dist'>30</floatvar>
+		<listvar type='rules'>
+		  <csvvar>'is_valid',1,'eq'</csvvar>
+		</listvar>
+	</class-shape>
+</data>

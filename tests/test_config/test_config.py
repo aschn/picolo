@@ -8,7 +8,7 @@
 import numpy as np
 import nose.tools
 
-from picolo.config import Config, Coord
+from picolo.config import Config, Coord, Mask
 
 class TestConfig:
     
@@ -24,6 +24,9 @@ class TestConfig:
         self.config_nopbc = Config(self.xcoords, self.ycoords,
                                    pbc=False, lx=self.Lx, ly=self.Ly)
         
+        self.infile = 'tests/data/sample_mask.tif'
+        self.mask = Mask(self.infile, self.Lx, self.Ly)
+
     def test_init_default_params(self):
         assert self.config_default.doPBC == False
         assert self.config_default.Lx == max(self.xcoords)
@@ -73,6 +76,20 @@ class TestConfig:
     def test_density(self):
         default_density = float(len(self.xcoords)) / max(self.xcoords) / max(self.ycoords)
         set_box_density = float(len(self.xcoords)) / self.Lx / self.Ly
-        nose.tools.assert_almost_equals(self.config_default.density(), default_density)
-        nose.tools.assert_almost_equals(self.config_nopbc.density(), set_box_density)
-        nose.tools.assert_almost_equals(self.config_pbc.density(), set_box_density)
+        masked_box_density = float(len(self.xcoords)) / self.mask.area()
+        nose.tools.assert_almost_equals(self.config_default.density(),
+                                        default_density)
+        nose.tools.assert_almost_equals(self.config_nopbc.density(),
+                                        set_box_density)
+        nose.tools.assert_almost_equals(self.config_pbc.density(),
+                                        set_box_density)
+        nose.tools.assert_almost_equals(self.config_nopbc.density(self.mask, cutoff_dist=0),
+                                        masked_box_density)
+
+    def test_radial(self):
+        gr_nopbc = self.config_nopbc.radial_distribution()
+        gr_pbc = self.config_pbc.radial_distribution()
+        
+    def test_nnd(self):
+        nnd_nopbc = self.config_nopbc.nearest_neighbor_distribution()
+        nnd_pbc = self.config_pbc.nearest_neighbor_distribution()

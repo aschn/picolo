@@ -8,6 +8,7 @@
 # import from standard library
 import itertools as it
 import math
+import logging
 
 # import external packages
 import numpy as np
@@ -52,6 +53,7 @@ class NeighborList:
         # initialize 
         self._neighbor_dict = self._compute(config)
         if mask is not None:
+            logging.debug('applying mask')
             self._apply_mask(config, mask)
             self.is_masked = True
         else:
@@ -518,7 +520,6 @@ class DelaunayNeighbors(NeighborList):
 
                 # check if edge crosses mask boundary
                 if not mask.is_valid_seg(x1, y1, x2, y2):
-
                     # if invalid, remove from masked_triangles and neighbors
                     # use discard (doesn't raise error if missing)
                     #    in case we've seen this pair before
@@ -527,8 +528,8 @@ class DelaunayNeighbors(NeighborList):
                     masked_neighbors[ip2].discard(ip1)
 
         # log and finish
-        print "after masking, removed %d triangles" % (len(self._triangles) -
-                                                       len(masked_triangles))
+        logging.info("after masking, removed %d triangles" % (len(self._triangles) -
+                                                               len(masked_triangles)))
         self._neighbor_dict = masked_neighbors
         self._triangles = masked_triangles
          
@@ -548,9 +549,9 @@ class DelaunayNeighbors(NeighborList):
         
         @param ips List of particle ids in *images
         
-        @param xc List of x coords with indices in ips
+        @param xc List of all x coords
         
-        @param yc List of y coords with indices in ips
+        @param yc List of all y coords
         
         @retval area Float for area as described above
         
@@ -573,16 +574,19 @@ class DelaunayNeighbors(NeighborList):
 
             # if no vertices in set, skip
             if n_in_set == 0:
+              #  logging.debug('n_in_set == 0')
                 continue
 
             # if all in set, add area of whole triangle
             elif n_in_set == 3:
+              #  logging.debug('n_in_set == 3')
                 area += self._triangle_area(xc[t[0]], yc[t[0]],
                                             xc[t[1]], yc[t[1]],
                                             xc[t[2]], yc[t[2]])
                 
             # if one in set, add area of little triangle
             elif n_in_set == 1:
+               # logging.debug('n_in_set == 1')
                 # get vertex of point in triangle
                 ip_in_set = is_in_set.index(True)
                 x1, y1 = xc[t[ip_in_set]], yc[t[ip_in_set]]
@@ -600,13 +604,14 @@ class DelaunayNeighbors(NeighborList):
 
             # if two in set, add area of trapezoid
             elif n_in_set == 2:
+               # logging.debug('n_in_set == 2')
                 # get vertices of points in triangle
                 ip_out_set = is_in_set.index(False)
                 x1, y1 = xc[t[(ip_out_set+1)%3]], yc[t[(ip_out_set+1)%3]]
                 x2, y2 = xc[t[(ip_out_set+2)%3]], yc[t[(ip_out_set+2)%3]]
 
                 # get vertices of midpoints to outside vertex
-                x3 = (xc[t[(ip_out_set+2)%3]] + xc[t[ip_out_set]]) / 2.0,
+                x3 = (xc[t[(ip_out_set+2)%3]] + xc[t[ip_out_set]]) / 2.0
                 y3 = (yc[t[(ip_out_set+2)%3]] + yc[t[ip_out_set]]) / 2.0
                 x4 = (xc[t[(ip_out_set+1)%3]] + xc[t[ip_out_set]]) / 2.0
                 y4 = (yc[t[(ip_out_set+1)%3]] + yc[t[ip_out_set]]) / 2.0
@@ -618,7 +623,7 @@ class DelaunayNeighbors(NeighborList):
 
             # if n_in_set is anything else, error
             else:
-                print "ERROR: n in set is", n_in_set
+                logging.warn("ERROR: n in set is %d" % n_in_set)
 
         # return
         return area, edges
@@ -630,6 +635,5 @@ class DelaunayNeighbors(NeighborList):
     def _trapezoid_area(self, x1, y1, x2, y2, x3, y3, x4, y4):
         # http://mathworld.wolfram.com/PolygonArea.html
         # vertices must be ordered contiguously (CW or CCW)
-        return abs(0.5 * (x1*y2 - x2*y1 + x2*y3 - x3*y2 + x3*y4 - x4*y3 +
-                          x4*y1 - x1*y4))
+        return abs(0.5 * (x1*y2 - x2*y1 + x2*y3 - x3*y2 + x3*y4 - x4*y3 + x4*y1 - x1*y4))
 
