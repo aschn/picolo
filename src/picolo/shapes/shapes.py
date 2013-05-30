@@ -482,7 +482,7 @@ class UnitCellShape(Shape):
         self.put_component('degrees', degrees)
         self.put_param('theta', math.radians(degrees))
                     
-    def _lattice_error(self, xy_tuple, coords, rcut):
+    def _lattice_error(self, xy_tuple, coords, rcut_sq):
         """ Get the error of the Bravais lattice described by the (x,y)
             points xytuple[0:2] and xytuple[2:4] to the provided coords
             using the error function
@@ -490,29 +490,20 @@ class UnitCellShape(Shape):
             for f(coord, bravais) = dist(coord, bravais)**2/(rcut)**2
             
         """
-        x1, y1, x2, y2 = xy_tuple
-
         # set up target Bravais lattice
-        bravais = self._bravais_lattice(x1, y1, x2, y2)
+        bravais = self._bravais_lattice(*xy_tuple)
         
-        # find closest Bravais point to each actual particle
-        # error is piecewise linear function in distance
         error = 0
-        rcut_sq = rcut*rcut
-        for ic, coord in enumerate(coords):
-            closest_dist_sq = np.Inf
-            for bp in bravais:
-                dist_sq = (coord.x-bp.x)*(coord.x-bp.x) + (coord.y-bp.y)*(coord.y-bp.y)
-                if dist_sq < closest_dist_sq:
-                    closest_dist_sq = dist_sq
-            if closest_dist_sq < rcut_sq:
-                error += closest_dist_sq / rcut_sq
-            else:
-                error += 1.0
-        error /= float(len(coords))
+        for coord in coords:
+            # find closest Bravais point to each actual particle
+            closest_dist_sq = min([(coord.x-bp.x)**2 + (coord.y-bp.y)**2 for bp in bravais])
+            # piecewise error function
+            error += min(closest_dist_sq / rcut_sq, 1.0)
+        error /= len(coords)
+    #    error = sum([min(min([(coord.x-bp.x)**2 + (coord.y-bp.y)**2 for bp in bravais]) / rcut_sq, 1.0)]) / len(coords)
         
         return error
-        
+                
     def _bravais_lattice(self, x1, y1, x2, y2, max_const=2):
         """ Set up a local Bravais lattice based on vectors (x1,y1) and
             (x2,y2), with lattice constants k,l in [-max_const, max_const].
@@ -520,13 +511,8 @@ class UnitCellShape(Shape):
                     
         """
         # set up target Bravais lattice up to +/- max_const
-        lattice_consts = range(-max_const, max_const+1)
-        bravais = []
-        for k,l in itertools.product(lattice_consts, repeat=2):
-            bravais.append( Coord(k*x1 + l*x2, k*y1 + l*y2) )
-        
-        # sort so smallest radial distances are first
-        bravais.sort(key = lambda c: c.r)
+        bravais = [Coord(k*x1 + l*x2, k*y1 + l*y2)
+            for k,l in itertools.product(xrange(-max_const, max_const+1), repeat=2)]
         
         # return
         return bravais
@@ -550,19 +536,20 @@ class UnitCellShape(Shape):
         best_bravais = None
         max_dist_sq = self.get('max_dist')**2
         min_dist_sq = self.get('min_dist')**2
+        rcut_sq = self.get('r_cut')**2
         constr_max1 = lambda x: max_dist_sq - x[0]*x[0] + x[1]*x[1]  # first vec mag < max_dist
         constr_max2 = lambda x: max_dist_sq - x[2]*x[2] + x[3]*x[3]  # second vec mag < max_dist
         constr_min1 = lambda x: x[0]*x[0] + x[1]*x[1] - min_dist_sq  # first vec mag > min_dist
         constr_min2 = lambda x: x[2]*x[2] + x[3]*x[3] - min_dist_sq  # first vec mag > min_dist
         
        # loop over particle pairs with a clockwise of b
-        for ia in range(0, len(coords)):
+        for ia in xrange(len(coords)):
             if best_error is not np.Inf:
                 break
-            for ib in range(ia+1 - len(coords), ia):
+            for ib in xrange(ia+1 - len(coords), ia):
                 init_xy_tuple = (coords[ia].x, coords[ia].y,
                                  coords[ib].x, coords[ib].y)
-                args = (coords, self.get('r_cut'))
+                args = (coords, rcut_sq)
                 opt_xy_tuple = optimize.fmin_cobyla(self._lattice_error,
                                                     init_xy_tuple,
                                                     [constr_max1, constr_max2,

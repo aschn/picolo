@@ -11,7 +11,7 @@ import math
 # import external packages
 import numpy as np
 
-class Coord:
+class Coord(object):
     """ Cartesian and polar coordinates for given (x,y) pair.
         theta is in range (-pi, pi), degrees is in range(-180,180)
     """    
@@ -21,15 +21,6 @@ class Coord:
     #
     # @var y 
     # @brief Float for y coord (Cartesian)
-    #
-    # @var r 
-    # @brief Float for r coord (polar)
-    #
-    # @var theta 
-    # @brief Float for theta coord in radians (polar)
-    #
-    # @var degrees
-    # @brief Float for theta coord in degrees (polar)
     
     def __init__(self, dx, dy):
         """ Constructor. Calculates (r, theta) given (x,y).
@@ -41,20 +32,43 @@ class Coord:
         """
         self.x = float(dx)
         self.y = float(dy)
-        self.r = math.sqrt(self.x*self.x + self.y*self.y)
-        if self.r > 0:
-            c = dx / self.r
-            s = dy / self.r
-            self.theta = math.atan2(s,c)
-        else:
-            self.theta = 0.0
-        self.degrees = math.degrees(self.theta)
+        self._theta = None
+        self._degrees = None
+        self._r = None
+        
+    @property
+    def r(self):
+        """ Distance from the origin """
+        if self._r is None:
+            self._r = math.sqrt(self.x*self.x + self.y*self.y)
+        return self._r
+        
+    @property
+    def theta(self):
+        """ Angle in radians for (r,theta) """
+        if self._theta is None:
+            if self.r > 0:
+                c = self.x / self.r
+                s = self.y / self.r
+                self._theta = math.atan2(s,c)
+            else:
+                self._theta = 0.0
+        
+        # return        
+        return self._theta
+        
+    @property
+    def degrees(self):
+        """ Angle in degrees for (r,theta) """
+        if self._degrees is None:
+            self._degrees = math.degrees(self.theta)
+        return self._degrees
             
     def __repr__(self):
         """ Returns a printable string. """
         retstr = "(x,y) = (%2.1f, %2.1f); " % (self.x,self.y)
         degs = np.remainder(self.degrees, 360.0)
-        retstr += "(r,theta) = (%2.1f, %3f)" % (self.r,degs)
+        retstr += "(r,theta) = (%2.1f, %3.1f)" % (self.r,degs)
         return retstr
         
     def __add__(self, other):

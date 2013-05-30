@@ -3,7 +3,7 @@
 @author Anna Schneider
 @version 0.1
 @brief Contains classes for Classifier, SVMClassifier, GMMClassifier,
-    and factory method classifier_factory
+    CARTClassifier, and factory method classifier_factory
 """
 
 # import from standard library
@@ -73,10 +73,10 @@ class Classifier:
         # use class_data's cutoff if it exists
         if hasattr(class_data, "cutoff"):
             cutoff = class_data.cutoff
-            logging.debug('using class cutoff %0.4f' % cutoff)
+           # logging.debug('using class cutoff %0.4f' % cutoff)
         else:
             cutoff = self._rejection_cutoff
-            logging.debug('using clf cutoff %0.4f' % cutoff)
+           # logging.debug('using clf cutoff %0.4f' % cutoff)
             
         # compare value to cutoff
         if match_val > cutoff:

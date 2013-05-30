@@ -76,9 +76,9 @@ class TestMatcherReal:
                                     xmlname='tests/data/sample_db_uc.xml',
                                     imname='tests/data/sample_mask.tif',
                                     lx=500, ly=500)
-        self.n = 211
-        self.n_valid = 63
-        self.n_matched = 21
+        self.n = 206
+        self.n_valid = 72
+        self.n_matched = 41
         
     def test_init_uc(self):
         nose.tools.assert_equal(self.matcher_uc.name, 'tester')
@@ -91,15 +91,15 @@ class TestMatcherReal:
         nose.tools.assert_almost_equal(self.matcher_uc.dist_neighbors._r, 30)
     
     def test_get_features(self):
-        shape = self.matcher_uc.get_features('test', 100)
+        shape = self.matcher_uc.get_features('test', 98)
         nose.tools.assert_almost_equal(shape.get('a'),
-                                       20.855069782468497)
+                                       20.7394123062)
         nose.tools.assert_almost_equal(shape.get('b'),
-                                       23.453862353319018)
+                                       23.0739478289)
         nose.tools.assert_almost_equal(shape.get('degrees'),
-                                       76.043661872282613)
+                                       72.1918282397)
         nose.tools.assert_almost_equal(shape.get('theta'),
-                                       math.radians(76.043661872282613))
+                                       math.radians(72.1918282397))
                
     def test_best_match_uc(self):
         names, vals = self.matcher_uc.get_best_match('test')

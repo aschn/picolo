@@ -21,8 +21,6 @@ class TestMask:
         nose.tools.assert_almost_equals(self.mask.cf_px2nm, 1)        
         nose.tools.assert_almost_equals(self.mask.cf_nm2px, 1)        
         nose.tools.assert_equal(self.mask.extent, (0, self.Lx, 0, self.Ly))
-        nose.tools.assert_equal(self.mask.edgefile,
-                                'tests/data/sample_mask_pxToEdge.txt')
         
     def test_empty_init(self):
         default_mask = Mask()
@@ -57,5 +55,3 @@ class TestMask:
         nose.tools.assert_almost_equals(self.mask.dist_to_edge(400, 200),
                                         79.0759128939)
                                         
-  #  def test_write_edges(self):
-  #     self.mask.write_edges()

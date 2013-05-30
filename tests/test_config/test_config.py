@@ -28,27 +28,46 @@ class TestConfig:
         self.mask = Mask(self.infile, self.Lx, self.Ly)
 
     def test_init_default_params(self):
-        assert self.config_default.doPBC == False
-        assert self.config_default.Lx == max(self.xcoords)
-        assert self.config_default.Ly == max(self.ycoords)
+        nose.tools.assert_false(self.config_default.doPBC)
+        nose.tools.assert_equal(self.config_default.Lx, max(self.xcoords))
+        nose.tools.assert_equal(self.config_default.Ly, max(self.ycoords))
         
     def test_init_default_vals(self):
-        assert self.config_default.N == len(self.xcoords)
-        assert np.all(self.xcoords == self.config_nopbc.x)
-        assert np.all(self.ycoords == self.config_nopbc.y)
+        nose.tools.assert_equal(self.config_default.N, len(self.xcoords))
+        nose.tools.assert_true(np.all(self.xcoords == self.config_nopbc.x))
+        nose.tools.assert_true(np.all(self.ycoords == self.config_nopbc.y))
+        
+    @nose.tools.raises(ValueError)
+    def test_bad_init_Lx(self):
+        bad_config = Config(self.xcoords, self.ycoords, pbc=False,
+                            lx=(max(self.xcoords)-1), ly=self.Ly)
+    @nose.tools.raises(ValueError)
+    def test_bad_init_Ly(self):
+        bad_config = Config(self.xcoords, self.ycoords, pbc=False,
+                            lx=self.Lx, ly=(max(self.ycoords)-1))
+    @nose.tools.raises(ValueError)
+    def test_bad_init_xc(self):
+        bad_config = Config([2, 2], [-1, 5], pbc=False,
+                            lx=self.Lx, ly=self.Ly)
+    @nose.tools.raises(ValueError)
+    def test_bad_init_yc(self):
+        bad_config = Config([-1, 5], [2, 2], pbc=False,
+                            lx=self.Lx, ly=self.Ly)
    
     def test_init_nopbc(self):
-        assert np.all(self.config_nopbc.x == self.config_nopbc.ximages)
-        assert np.all(self.config_nopbc.y == self.config_nopbc.yimages)
-        assert self.config_nopbc.Lx == self.Lx
-        assert self.config_nopbc.Ly == self.Lx
+        nose.tools.assert_true(np.all(self.config_nopbc.x == self.config_nopbc.ximages))
+        nose.tools.assert_true(np.all(self.config_nopbc.y == self.config_nopbc.yimages))
+        nose.tools.assert_equal(self.config_nopbc.Lx, self.Lx)
+        nose.tools.assert_equal(self.config_nopbc.Ly, self.Ly)
 
     def test_init_pbc(self):
-        assert self.config_pbc.doPBC == True
-        assert len(self.config_pbc.x)*9 == len(self.config_pbc.ximages)
-        assert len(self.config_pbc.y)*9 == len(self.config_pbc.yimages)
-        assert self.config_pbc.Lx == self.Lx
-        assert self.config_pbc.Ly == self.Lx
+        nose.tools.assert_true(self.config_pbc.doPBC)
+        nose.tools.assert_equal(len(self.config_pbc.x)*9,
+                                len(self.config_pbc.ximages))
+        nose.tools.assert_equal(len(self.config_pbc.y)*9,
+                                len(self.config_pbc.yimages))
+        nose.tools.assert_equal(self.config_pbc.Lx, self.Lx)
+        nose.tools.assert_equal(self.config_pbc.Ly, self.Ly)
         
     def test_pbc_dist(self):
         xdist_w_pbc = self.config_pbc._PBC_dist(2, 5, 8, 5)
@@ -61,10 +80,10 @@ class TestConfig:
         nose.tools.assert_almost_equals(ydist_wo_pbc, 6)
        
     def test_tri_in_image(self):
-        assert self.config_nopbc.is_tri_in_image(0, 1, 2)
-        assert self.config_pbc.is_tri_in_image(0, 1, 2)
-        assert self.config_pbc.is_tri_in_image(0, 1, 2+4*len(self.config_pbc.x))
-        assert self.config_pbc.is_tri_in_image(0, 1, 2+5*len(self.config_pbc.x)) is False
+        nose.tools.assert_true(self.config_nopbc.is_tri_in_image(0, 1, 2))
+        nose.tools.assert_true(self.config_pbc.is_tri_in_image(0, 1, 2))
+        nose.tools.assert_true(self.config_pbc.is_tri_in_image(0, 1, 2+4*len(self.config_pbc.x)))
+        nose.tools.assert_false(self.config_pbc.is_tri_in_image(0, 1, 2+5*len(self.config_pbc.x)))
         
     def test_coord_at(self):
         expected_coord = Coord(self.xcoords[0], self.ycoords[0])
@@ -85,6 +104,10 @@ class TestConfig:
                                         set_box_density)
         nose.tools.assert_almost_equals(self.config_nopbc.density(self.mask, cutoff_dist=0),
                                         masked_box_density)
+                                        
+ #   def test_interior(self):
+ #       nose.tools.assert_equal(self.config_nopbc.interior_particles(self.mask), 5)
+ #       nose.tools.assert_equal(self.config_nopbc.interior_particles(self.mask, 0.2), 10)
 
     def test_radial(self):
         gr_nopbc = self.config_nopbc.radial_distribution()

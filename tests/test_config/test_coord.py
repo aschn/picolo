@@ -49,3 +49,7 @@ class TestCoord:
     def test_degrees_in_range_pos(self):
         c = Coord(-1,1)
         nose.tools.assert_almost_equals(c.degrees, 180-45)
+        
+    def test_repr(self):
+        nose.tools.assert_equal(repr(Coord(0,1)),
+                                "(x,y) = (0.0, 1.0); (r,theta) = (1.0, 90.0)")

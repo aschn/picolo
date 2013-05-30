@@ -239,7 +239,7 @@ class Config:
         else:
             return False
 
-    def interior_particles(self, mask, cutoff_dist=None):
+    def interior_particles(self, mask, cutoff_dist=0):
         """ Compute number of particles at least cutoff_dist away from edge.
 
         @param self The object pointer
@@ -251,14 +251,11 @@ class Config:
         @retval Int for number of interior particles
         
         """
-        if cutoff_dist > 0:
-            n = 0
-            for ip in range(self.N):
-                if mask.is_interior(self.x[ip], self.y[ip], cutoff_dist):
-                    n += 1
-            return n
-        else:
-            return self.N
+        n = 0
+        for ip in range(self.N):
+            if mask.is_interior(self.x[ip], self.y[ip], cutoff_dist):
+                n += 1
+        return n
 
     def coord_at(self, ip):
         """ Get Coord object for a particle.
