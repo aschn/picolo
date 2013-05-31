@@ -512,7 +512,8 @@ class UnitCellShape(Shape):
         """
         # set up target Bravais lattice up to +/- max_const
         bravais = [Coord(k*x1 + l*x2, k*y1 + l*y2)
-            for k,l in itertools.product(xrange(-max_const, max_const+1), repeat=2)]
+            for k,l in itertools.product(xrange(-max_const, max_const+1),
+                                         repeat=2)]
         
         # return
         return bravais

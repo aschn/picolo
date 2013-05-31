@@ -102,7 +102,8 @@ class Matcher():
         self.initialize_shapes(xmlname)
         
         # set up particle features
-        self.set_features()
+      #  self.set_features()
+        self._features = dict()
         
     def read_config(self, fname, xcol, ycol, delim, tagcol, goodtag,
                    trainingcol, header, skipneg):

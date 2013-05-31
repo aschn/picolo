@@ -94,8 +94,8 @@ class Trainer:
                 self._X = x_vals
                 logging.debug('overwrote X')
             else:
-                msg = "Couldn't append x_vals (shape %s) " % x_vals.shape
-                msg += "to existing data (ncols %d)." % self.n_features
+                msg = "Couldn't append x_vals of shape %s " % str(x_vals.shape)
+                msg += "to existing data with ncols %d." % self.n_features
                 raise ValueError(msg)
                 
         # append data sources
@@ -109,8 +109,10 @@ class Trainer:
         
         @param n_components Number of classes in fitted model
         
+        @retval self
+        
         """
-        pass
+        return self
     
     def predict(self, data_id=None):
         """ Get prediction from fitted model.
@@ -187,6 +189,9 @@ class GMMTrainer(Trainer):
         
         # fit GMM
         self._classifier.fit(self._X)
+        
+        # return
+        return self
         
     def params_as_shapes(self, template_shape):
         # set up storage
@@ -270,6 +275,9 @@ class SVMTrainer(Trainer):
                 msg = "In SVM fit, asked for %d classes " % n_classes
                 msg += " but got %d." % self._classifier.coef_.shape[0]
                 raise RuntimeWarning(msg)
+                
+        # return
+        return self
         
     def params_as_shapes(self, template_shape):
         # set up storage
@@ -305,9 +313,9 @@ def trainer_factory(algorithm=None):
     """
     if algorithm is None:
         return Trainer()
-    elif algorithm is 'gmm':
+    elif algorithm == 'gmm':
         return GMMTrainer()
-    elif algorithm is 'svm':
+    elif algorithm == 'svm':
         return SVMTrainer()
     else:
         raise ValueError("Cannot build Trainer of type %s." % algorithm)

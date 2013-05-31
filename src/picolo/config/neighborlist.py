@@ -367,6 +367,22 @@ class DistNeighbors(NeighborList):
             
         # returm
         return neighbor_dict
+        
+    def set_dist(self, dist):
+        """ Set maximum distance for neighbors, and recompute if necessary.
+        
+        @param dist  Number for distance cutoff
+        
+        @retval did_recompute Bool for whether recompute happened
+
+        """
+        if math.fabs(dist - self._r) > 1e-6:
+            self._r = dist
+            self._neighbor_dict = self._compute()
+            self._clean()
+            return True
+        else:
+            return False
                                       
     def neighbors_within(self, dist, particle_id):
         """ Finds neighbors of particle particle_id within distance dist.
@@ -381,9 +397,7 @@ class DistNeighbors(NeighborList):
         
         """
         # set up with correct distance
-        if math.fabs(dist - self._r) > 1e-6:
-            self._r = dist
-            self._neighbor_dict = self._compute()
+        self.set_dist(dist)
             
         # return 
         return self.neighbors_of(particle_id)

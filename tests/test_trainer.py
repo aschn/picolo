@@ -167,7 +167,7 @@ class TestGMMTrainer:
         expected = self.trainer_gmm.aic() + 3*math.log(self.n) + 2*(3-1)
         nose.tools.assert_almost_equal(self.trainer_gmm.bic(), expected,
                                        places=1)
-                                   
+                         
     def test_predict_gmm(self):
         self.trainer_gmm.load(self.features)
         self.trainer_gmm.fit(n_classes=2)

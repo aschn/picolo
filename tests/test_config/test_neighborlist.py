@@ -40,6 +40,11 @@ class TestNeighborList:
         nose.tools.assert_equal(len(self.neighborlist_masked), 0)
         nose.tools.assert_equal(len(self.neighborlist_delaunay), 204)
         nose.tools.assert_equal(len(self.neighborlist_dist), 204)
+        
+    def test_set_dist(self):
+        did_compute = self.neighborlist_dist.set_dist(15)
+        nose.tools.assert_true(did_compute)
+        nose.tools.assert_equal(len(self.neighborlist_dist), 41)
 
     def test_neighbors_of(self):
         nof_default = self.neighborlist_default.neighbors_of(0)
