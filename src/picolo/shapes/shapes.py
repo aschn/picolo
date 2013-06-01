@@ -9,17 +9,15 @@
 # import from standard library
 import math
 import copy
-import itertools
 import warnings
 import logging
 
 # import external packages
 import numpy as np
-from scipy import optimize
 import matplotlib.pyplot as plt
 
 # import modules in this package
-from config import Coord
+from picolo.config import BravaisLattice
 
 class Shape:
     """ Base class for shape descriptors.
@@ -85,7 +83,7 @@ class Shape:
         elif var_name in self._params:
             return self._params[var_name]
         else:
-            raise KeyError('Nothing found for %s in vars (%s) or params (%s)' % (str(var_name),
+            raise KeyError("Nothing found for %s in vars (%s) or params (%s)" % (str(var_name),
                                                                              ', '.join(self._var_names),
                                                                              ', '.join(self._params.keys())))
                                 
@@ -449,7 +447,7 @@ class UnitCellShape(Shape):
             return
             
         # find best optimized Bravais lattice
-        bravais, error = self._best_bravais_lattice(coords_in_range)            
+        bravais, error = self._best_bravais_lattice(coords_in_range)   
         
         # decide if good unit cell
         if error > self.get('min_error'):
@@ -457,11 +455,11 @@ class UnitCellShape(Shape):
             return
 
         # find good unit cell using Bravais lattice
-        a, b, degrees = self._bravais_to_unit_cell(bravais)
-
-        if not a:
-            coord_string = "\n".join([repr(coord) for coord in coords_in_range])
-            raise RuntimeWarning('no unit cell for coords: %s' % coord_string)
+        try:
+            a, b, degrees = self._bravais_to_unit_cell(bravais)
+        except:
+            coord_string = "\n\t".join([repr(coord) for coord in coords_in_range])
+            raise RuntimeWarning('no unit cell for coords:\n\t%s' % coord_string)
             self.invalidate()
             return
                 
@@ -481,92 +479,6 @@ class UnitCellShape(Shape):
         self.put_component('b', b)
         self.put_component('degrees', degrees)
         self.put_param('theta', math.radians(degrees))
-                    
-    def _lattice_error(self, xy_tuple, coords, rcut_sq):
-        """ Get the error of the Bravais lattice described by the (x,y)
-            points xytuple[0:2] and xytuple[2:4] to the provided coords
-            using the error function
-            sum_{coords} [ min[ min_{bravais}[ f(coord, bravais) ], 1.0 ] ]
-            for f(coord, bravais) = dist(coord, bravais)**2/(rcut)**2
-            
-        """
-        # set up target Bravais lattice
-        bravais = self._bravais_lattice(*xy_tuple)
-        
-        error = 0
-        for coord in coords:
-            # find closest Bravais point to each actual particle
-            closest_dist_sq = min([(coord.x-bp.x)**2 + (coord.y-bp.y)**2 for bp in bravais])
-            # piecewise error function
-            error += min(closest_dist_sq / rcut_sq, 1.0)
-        error /= len(coords)
-    #    error = sum([min(min([(coord.x-bp.x)**2 + (coord.y-bp.y)**2 for bp in bravais]) / rcut_sq, 1.0)]) / len(coords)
-        
-        return error
-                
-    def _bravais_lattice(self, x1, y1, x2, y2, max_const=2):
-        """ Set up a local Bravais lattice based on vectors (x1,y1) and
-            (x2,y2), with lattice constants k,l in [-max_const, max_const].
-            Returns a list of Coords.
-                    
-        """
-        # set up target Bravais lattice up to +/- max_const
-        bravais = [Coord(k*x1 + l*x2, k*y1 + l*y2)
-            for k,l in itertools.product(xrange(-max_const, max_const+1),
-                                         repeat=2)]
-        
-        # return
-        return bravais
-        
-    def _best_bravais_lattice(self, coords):
-        """ Finds the 2d Bravais lattice that best matches a set of coords.
-        
-        @param self The object pointer
-        
-        @param coords List of Coord objects, with the origin at the reference
-            position of the Bravais lattice
-            
-        @retval List of Coord objects for points in Bravais lattice
-        
-        """
-        # if ok, sort tuples by theta
-        coords.sort(cmp = lambda u,v: cmp(u.theta, v.theta))
-        
-        # find best optimized Bravais lattice
-        best_error = np.Inf
-        best_bravais = None
-        max_dist_sq = self.get('max_dist')**2
-        min_dist_sq = self.get('min_dist')**2
-        rcut_sq = self.get('r_cut')**2
-        constr_max1 = lambda x: max_dist_sq - x[0]*x[0] + x[1]*x[1]  # first vec mag < max_dist
-        constr_max2 = lambda x: max_dist_sq - x[2]*x[2] + x[3]*x[3]  # second vec mag < max_dist
-        constr_min1 = lambda x: x[0]*x[0] + x[1]*x[1] - min_dist_sq  # first vec mag > min_dist
-        constr_min2 = lambda x: x[2]*x[2] + x[3]*x[3] - min_dist_sq  # first vec mag > min_dist
-        
-       # loop over particle pairs with a clockwise of b
-        for ia in xrange(len(coords)):
-            if best_error is not np.Inf:
-                break
-            for ib in xrange(ia+1 - len(coords), ia):
-                init_xy_tuple = (coords[ia].x, coords[ia].y,
-                                 coords[ib].x, coords[ib].y)
-                args = (coords, rcut_sq)
-                opt_xy_tuple = optimize.fmin_cobyla(self._lattice_error,
-                                                    init_xy_tuple,
-                                                    [constr_max1, constr_max2,
-                                                     constr_min1, constr_min2],
-                                                    args = args,
-                                                    consargs = (),
-                                                    disp=0)
-                error = self._lattice_error(opt_xy_tuple, *args)
-
-                # check for best fit lattice
-                if error < best_error - 1e6:
-                    best_error = error
-                    best_bravais = self._bravais_lattice(*opt_xy_tuple)
-                    break
-                
-        return best_bravais, best_error
         
     def _bravais_to_unit_cell(self, bravais):
         """ Find the unit cell parameters (a,b,angle) that describe the
@@ -581,6 +493,7 @@ class UnitCellShape(Shape):
         best_b = None
         best_angle = None
         best_area = None
+        bravais.sort(cmp = lambda u,v: cmp(u.r, v.r))
 
         # loop through pairs
         for ia in range(1, len(bravais)):
@@ -617,7 +530,12 @@ class UnitCellShape(Shape):
                             best_angle = angle
                             best_area = area
                         
-        return best_a, best_b, math.degrees(best_angle)
+        logging.debug("a=%s, b=%s, theta=%s" % (best_a, best_b, best_angle))
+        try:
+            return best_a, best_b, math.degrees(best_angle)
+        except TypeError:
+            raise ValueError("No unit cell found for Bravais %s, %s" % (bravais[1],
+                                                                        bravais[2]))
                     
     def area(self, a=None, b=None, theta=None):
         """ With no arguments, calculate the area of this unit cell;

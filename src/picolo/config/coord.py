@@ -64,6 +64,13 @@ class Coord(object):
             self._degrees = math.degrees(self.theta)
         return self._degrees
             
+    def rotate(self, radians):
+        """ Return a new Coord that is rotated counterclockwise
+            by the given number of radians. """            
+        new_x = self.x * math.cos(radians) + self.y * -math.sin(radians)
+        new_y = self.x * math.sin(radians) + self.y * math.cos(radians)
+        return Coord(new_x, new_y)
+        
     def __repr__(self):
         """ Returns a printable string. """
         retstr = "(x,y) = (%2.1f, %2.1f); " % (self.x,self.y)
@@ -94,3 +101,7 @@ class Coord(object):
         
         """
         return Coord(self.x - other.x, self.y - other.y)
+        
+    def __eq__(self, other):
+        tol = 1e-6
+        return math.fabs(self.x - other.x) < tol and math.fabs(self.y - other.y) < tol 

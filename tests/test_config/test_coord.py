@@ -28,11 +28,12 @@ class TestCoord:
         nose.tools.assert_almost_equals(csum.y, 4)
         
     def test_subtract(self):
-        c1 = Coord(0,1)
+        c1 = Coord(3,1)
         c2 = Coord(2,3)
         cdiff = c1 - c2
-        nose.tools.assert_almost_equals(cdiff.x, -2)
+        nose.tools.assert_almost_equals(cdiff.x, 1)
         nose.tools.assert_almost_equals(cdiff.y, -2)
+        nose.tools.assert_almost_equals(cdiff.r, math.sqrt(5))
         
     def test_radians_in_range_neg(self):
         c = Coord(-1,-1)
@@ -53,3 +54,11 @@ class TestCoord:
     def test_repr(self):
         nose.tools.assert_equal(repr(Coord(0,1)),
                                 "(x,y) = (0.0, 1.0); (r,theta) = (1.0, 90.0)")
+                                
+    def test_equal(self):
+        nose.tools.assert_true(Coord(1,0) == Coord(1,0))                           
+                                
+    def test_rotate(self):
+        c = Coord(2,1)
+        r = c.rotate(math.radians(90))
+        nose.tools.assert_equal(r, Coord(-1,2))

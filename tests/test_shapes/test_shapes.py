@@ -2,7 +2,7 @@
 @package test_shapes
 @author Anna Schneider
 @version 0.1
-@brief Tests picolo.config.Shape
+@brief Tests picolo.shapes.Shape
 """
 
 import nose.tools
@@ -110,13 +110,14 @@ class TestRealShapes:
         nose.tools.assert_equal(factory_data, built_data)
         
     def test_uc_data(self):
-        self.uc.build_from_coords(self.coords)
-        nose.tools.assert_almost_equal(self.uc.get('a'), 15.0, places=4)
-        nose.tools.assert_almost_equal(self.uc.get('b'), 15.0, places=4)
+        self.uc.build_from_coords([Coord(15,0), Coord(0,16),
+                                   Coord(-15,0), Coord(0,-16)])
+        nose.tools.assert_almost_equal(self.uc.get('a'), 15.0, places=3)
+        nose.tools.assert_almost_equal(self.uc.get('b'), 16.0, places=3)
         nose.tools.assert_almost_equal(self.uc.get('degrees'), 90.0, places=3)
         nose.tools.assert_almost_equal(self.uc.get('theta'),
-                                       math.radians(90.0), places=4)
-        nose.tools.assert_almost_equal(self.uc.area(), 15.0*15.0, places=4)
+                                       math.radians(90.0), places=3)
+        nose.tools.assert_almost_equal(self.uc.area(), 15.0*16.0, places=2)
         nose.tools.assert_equal(self.uc.get('type'), 'UnitCell')
         nose.tools.assert_equal(self.uc.get_components(), ['a', 'b', 'degrees'])
         
