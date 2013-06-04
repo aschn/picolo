@@ -17,7 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # import modules in this package
-from picolo.config import BravaisLattice
+from config import BravaisLattice
 
 class Shape:
     """ Base class for shape descriptors.
@@ -447,7 +447,12 @@ class UnitCellShape(Shape):
             return
             
         # find best optimized Bravais lattice
-        bravais, error = self._best_bravais_lattice(coords_in_range)   
+        bl = BravaisLattice()
+        bravais, error = bl.fit(coords_in_range,
+                                r_cut=self.get('r_cut'),
+                                min_dist=self.get('min_dist'),
+                                max_dist=self.get('max_dist'))
+
         
         # decide if good unit cell
         if error > self.get('min_error'):
@@ -534,6 +539,8 @@ class UnitCellShape(Shape):
         try:
             return best_a, best_b, math.degrees(best_angle)
         except TypeError:
+            logging.debug("No unit cell found for Bravais %s, %s" % (bravais[1],
+                                                                        bravais[2]))
             raise ValueError("No unit cell found for Bravais %s, %s" % (bravais[1],
                                                                         bravais[2]))
                     

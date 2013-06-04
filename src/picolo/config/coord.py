@@ -103,5 +103,5 @@ class Coord(object):
         return Coord(self.x - other.x, self.y - other.y)
         
     def __eq__(self, other):
-        tol = 1e-6
+        tol = 1e-4
         return math.fabs(self.x - other.x) < tol and math.fabs(self.y - other.y) < tol 

@@ -159,7 +159,7 @@ class TestGMMTrainer:
         self.trainer_gmm.load(self.features)
         self.trainer_gmm.fit()
         nose.tools.assert_almost_equal(self.trainer_gmm.aic(),
-                                       5190.98920764)
+                                       5178.4171121803702)
 
     def test_bic_gmm(self):
         self.trainer_gmm.load(self.features)
@@ -212,9 +212,9 @@ class TestSVMTrainer:
         self.trainer_svm.fit()
         shapes = self.trainer_svm.params_as_shapes(self.template_shape)
         nose.tools.assert_equal(len(shapes), 1)
-        nose.tools.assert_almost_equal(shapes[0].get('a'), 0.010763539)
-        nose.tools.assert_almost_equal(shapes[0].get('b'), 0.014459934)
-        nose.tools.assert_almost_equal(shapes[0].get('degrees'), 0.026659786)
+        nose.tools.assert_almost_equal(shapes[0].get('a'), 0.0088578582091631101)
+        nose.tools.assert_almost_equal(shapes[0].get('b'), 0.011840954483356043)
+        nose.tools.assert_almost_equal(shapes[0].get('degrees'), 0.029408398826550369)
         nose.tools.assert_almost_equal(shapes[0].get('intercept'), -0.997138, places=5)        
 
     def test_fit_svm_2(self):

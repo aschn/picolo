@@ -6,7 +6,6 @@
 """
 
 import nose.tools
-import math
 
 from picolo.config import Coord, BravaisLattice
 
@@ -52,16 +51,31 @@ class TestBravais:
         error = self.bl.error(self.xy_tuple, [Coord(22,16)], 1, self.rcut)
         nose.tools.assert_almost_equal(error, 1)
         
-    @nose.tools.timed(0.005)
     def test_fit(self):
         fitted_bl, error = self.bl.fit(self.coords, 1, self.rcut,
                                 self.max_dist, self.min_dist)
-        print fitted_bl
         for c in self.coords:
             count = 0
             for p in fitted_bl:
-                print c.rotate(math.radians(90)), p
-                if c.rotate(math.radians(90)) == p:
+                print c, p
+                if c == p:
                     count += 1
             nose.tools.assert_equal(count, 1)
-            
+    
+    def test_fitted_error(self):
+        coords = [Coord(21.5, -1.0), Coord(10.7, 23.4),
+                  Coord(-10.7, 27.3), Coord(-21.5, 5.9)]
+        fitted_bl, fitted_error = self.bl.fit(coords, 2, self.rcut,
+                                self.max_dist, self.min_dist)
+                                
+        expected_error = 0
+        for coord in coords:
+            # find closest Bravais point to each actual particle
+            closest_dist_sq = min([(coord.x-bp.x)**2 + (coord.y-bp.y)**2 for bp in fitted_bl])
+            # piecewise error function
+            expected_error += min(closest_dist_sq / self.rcut/self.rcut, 1.0)
+        expected_error /= len(coords)
+       # expected_error = sum([min(min([(coord.x-bp.x)**2 + (coord.y-bp.y)**2 for bp in fitted_bl]) / self.rcut/self.rcut, 1.0)]) / len(coords)
+                                        
+        nose.tools.assert_almost_equal(fitted_error, expected_error)
+                

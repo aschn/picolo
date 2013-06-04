@@ -95,13 +95,13 @@ class TestMatcherReal:
     def test_get_features(self):
         shape = self.matcher_uc.get_features('test', 98)
         nose.tools.assert_almost_equal(shape.get('a'),
-                                       20.7394123062)
+                                       20.7394123062, places=2)
         nose.tools.assert_almost_equal(shape.get('b'),
-                                       23.0739478289)
+                                       23.0739478289, places=2)
         nose.tools.assert_almost_equal(shape.get('degrees'),
-                                       72.1918282397)
+                                       72.1918282397, places=2)
         nose.tools.assert_almost_equal(shape.get('theta'),
-                                       math.radians(72.1918282397))
+                                       math.radians(72.1918282397), places=2)
                
     def test_best_match_uc(self):
         names, vals = self.matcher_uc.get_best_match('test')

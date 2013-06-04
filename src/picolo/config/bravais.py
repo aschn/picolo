@@ -7,6 +7,7 @@
 
 # import from standard library
 import itertools
+import logging
 
 # import external packages
 import numpy as np
@@ -39,8 +40,8 @@ class BravaisLattice:
         """
         # set up target Bravais lattice
         kx1 = kl_pairs[:,0] * xy_tuple[0]
-        lx2 = kl_pairs[:,1] * xy_tuple[1]
-        ky1 = kl_pairs[:,0] * xy_tuple[2]
+        lx2 = kl_pairs[:,1] * xy_tuple[2]
+        ky1 = kl_pairs[:,0] * xy_tuple[1]
         ly2 = kl_pairs[:,1] * xy_tuple[3]
         bravais_pairs = np.vstack((kx1 + lx2, ky1 + ly2)).transpose()
         
@@ -131,6 +132,8 @@ class BravaisLattice:
                     
         @retval List of Coord objects for points in Bravais lattice
         
+        @retval error Number for error in lattice fit
+        
         """
         # set up parameters for optimizing Bravais lattice
         best_error = np.Inf
@@ -195,4 +198,4 @@ class BravaisLattice:
         
     def _constr_min2(self, x):
          # first vec mag > min_dist
-        x[2]*x[2] + x[3]*x[3] - self._min_dist_sq
+        return x[2]*x[2] + x[3]*x[3] - self._min_dist_sq

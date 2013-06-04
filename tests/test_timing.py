@@ -18,7 +18,7 @@ class TestMatcherTiming:
                                     imname='tests/data/sample_mask.tif',
                                     lx=500, ly=500)
         
-    @nose.tools.timed(3)
+    @nose.tools.timed(1.8)
     def test_set_features_timing(self):
         self.matcher_uc.set_features('test')
 
