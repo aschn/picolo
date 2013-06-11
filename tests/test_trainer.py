@@ -171,7 +171,35 @@ class TestGMMTrainer:
         self.trainer_gmm.fit()
         shapes = self.trainer_gmm.params_as_shapes(self.template_shape)
         nose.tools.assert_equal(len(shapes), 2)
-            
+        
+    def test_get_gmm(self):
+        self.trainer_gmm.load(self.features)
+        self.trainer_gmm.fit(n_classes=3)
+        params = self.trainer_gmm.get_params()
+        means = self.trainer_gmm.means()
+        sds = self.trainer_gmm.sds()
+        nose.tools.assert_true(np.all(params[:,:,0] == means))
+        nose.tools.assert_true(np.all(params[:,:,1] == sds))
+        
+    def test_set_gmm(self):
+        self.trainer_gmm.load(self.features)
+        self.trainer_gmm.fit(n_classes=2)
+
+        means = np.arange(6).reshape((2,3))
+        sds = np.arange(6).reshape((2,3)) * 0.1
+        params = np.dstack((means, sds))
+        
+        self.trainer_gmm.set_params(means=means)
+        print means
+        print self.trainer_gmm.means()
+        nose.tools.assert_true(np.all(means == self.trainer_gmm.means()))
+
+        self.trainer_gmm.set_params(sds=sds)
+        nose.tools.assert_true(np.all(sds == self.trainer_gmm.sds()))
+
+        self.trainer_gmm.set_params(params=params)
+        nose.tools.assert_true(np.all(params == self.trainer_gmm.get_params()))
+
     def test_aic_gmm(self):
         self.trainer_gmm.load(self.features)
         print self.trainer_gmm._X.shape

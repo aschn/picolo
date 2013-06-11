@@ -10,7 +10,6 @@
 import logging
 import copy
 import itertools
-import math
 
 # import external packages
 import numpy as np
@@ -133,6 +132,14 @@ class Trainer:
         # append data sources
         ids = np.ones(x_vals.shape[0]) * self.n_sources
         self._data_sources = np.hstack((self._data_sources, ids))
+    
+    def get_params(self):
+        """ Get model-specific parameters """
+        pass
+    
+    def set_params(self, **params):
+        """ Set model-specific parameters """
+        pass        
     
     def fit(self, data_id=None, n_classes=None):
         """ Fit the model using the loaded data. 
@@ -311,6 +318,35 @@ class GMMTrainer(Trainer):
         else:
             return self._classifier.bic(self._X)
         
+    def get_params(self):
+        """ Get means and standard deviations of Gaussians.
+        
+        @retval params ndarray of shape [n_classes, n_features, 2]
+            where params[:,:,0] is means and params[:,:,1] is SDs
+        
+        """
+        return np.dstack((self.means(), self.sds()))
+    
+    def set_params(self, means=None, sds=None, params=None):
+        """ Set means and standard deviations of Gaussians.
+            If params is specified, overrides means and sds arguments.
+        
+        @param means [n_classes, n_features] ndarray of means (mus)
+        
+        @param sds [n_classes, n_features] ndarray of standard deviations
+        
+        @param params [n_classes, n_features, 2] ndarray of means and sds
+        
+        """
+        if params is not None:
+            means = params[:,:,0]
+            sds = params[:,:,1]
+            
+        if means is not None:
+            self._classifier.means_ = means
+        if sds is not None:
+            self._classifier.covars_ = np.square(sds)
+    
     def bootstrap_fit(self, n_reps, n_classes=None, labels_true=None,
                       seed=None):
         """ Estimate model parameters by fitting to bootstrapped data.
