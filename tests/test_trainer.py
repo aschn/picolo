@@ -202,19 +202,18 @@ class TestGMMTrainer:
 
     def test_aic_gmm(self):
         self.trainer_gmm.load(self.features)
-        print self.trainer_gmm._X.shape
         self.trainer_gmm.fit()
-        nose.tools.assert_almost_equal(self.trainer_gmm.aic(),
-                                       1177.8160409827542)
-                                       #5178.4171121803702)
+        expected = 2.0 * self.trainer_gmm.n_classes * self.trainer_gmm.n_features * 2
+        expected -= 2.0 * self.trainer_gmm._classifier.score(self.trainer_gmm._X).sum()
+        nose.tools.assert_almost_equal(self.trainer_gmm.aic(), expected)
 
     def test_bic_gmm(self):
         # TO DO
         self.trainer_gmm.load(self.features)
         self.trainer_gmm.fit()
-        expected = self.trainer_gmm.aic() + 3*math.log(self.n) + 2*(3-1)
-     #   nose.tools.assert_almost_equal(self.trainer_gmm.bic(), expected,
-     #                                  places=1)
+        expected = self.trainer_gmm.aic() 
+        expected += (math.log(self.n) - 2.0) * self.trainer_gmm.n_classes * self.trainer_gmm.n_features * 2.0
+        nose.tools.assert_almost_equal(self.trainer_gmm.bic(), expected)
                          
     def test_predict_gmm(self):
         self.trainer_gmm.load(self.features)
@@ -232,26 +231,28 @@ class TestGMMTrainer:
         pred_labels = self.trainer_gmm.predict()
         expected = np.count_nonzero(pred_labels) / float(pred_labels.size)
         nose.tools.assert_almost_equal(accuracy, expected)
-        
-    @nose.tools.timed(1)
+
     def test_bootstrap_gmm(self):
         self.trainer_gmm.load(self.features)
         self.trainer_gmm.fit(n_classes=2)
         means_expect = self.trainer_gmm.means()
         sds_expect = self.trainer_gmm.sds()
-        labels = self.trainer_gmm.predict()
-        means_est, sds_est, means_CI, sds_CI = self.trainer_gmm.bootstrap_fit(100,
-                                                                              n_classes=2,
-                                                                              labels_true=labels,
-                                                                              seed=87655678)
-
-        means_err = np.abs(means_est - means_expect)
-        means_ok = np.all( (means_CI - means_err) / means_CI > 0.5)
-        nose.tools.assert_true(means_ok)
+        n_reps = 100
+        means_boot = np.zeros([n_reps, 2, self.trainer_gmm.n_features])
+        sds_boot = np.zeros([n_reps, 2, self.trainer_gmm.n_features])
+        bootstrap_generator = self.trainer_gmm.bootstrap(n_reps=n_reps, n_classes=2,
+                                              labels_true=self.trainer_gmm.predict(),
+                                              seed=1)
+        for irep, (model, inds) in enumerate(bootstrap_generator):
+            means_boot[irep] = model.means()
+            sds_boot[irep] = model.sds()
+        means_est = np.mean(means_boot, axis=0)
+        sds_est = np.mean(sds_boot, axis=0)
+        means_CI = np.std(means_boot, axis=0, ddof=1) * 1.96
+        sds_CI = np.std(sds_boot, axis=0, ddof=1) * 1.96
+        nose.tools.assert_true(np.all((means_CI - np.abs(means_est - means_expect)) / means_CI > 0.5))
+        nose.tools.assert_true(np.all((sds_CI - np.abs(sds_est - sds_expect)) / sds_CI > 0.5))
         
-        sds_err = np.abs(sds_est - sds_expect)
-        sds_ok = np.all( (sds_CI - sds_err) / sds_CI > 0.5)
-        nose.tools.assert_true(sds_ok)
         
 class TestSVMTrainer:
                                                                         

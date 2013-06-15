@@ -10,6 +10,8 @@ import picolo
 import argparse
 import time
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 # start timer
 start = time.time()
@@ -45,20 +47,55 @@ for filename in args.files:
     # load
     trainer.load(X_data)
 
-# choose best number of components
-ks = range(1,15)
+# choose best number of components by bootstrap
+ks = range(1, 8)
+n_reps = 200
+bics = np.zeros((n_reps, len(ks)))
+means = np.zeros([n_reps, trainer.n_classes, trainer.n_features])
+for ik, k in enumerate(ks):
+    for irep, (model, inds) in enumerate(trainer.bootstrap(n_reps=n_reps,
+                                                           n_classes=k)):
+        bics[irep, ik] = model.bic(inds)
+
+# plot bootstrap results
+plt.figure()
+plt.boxplot(bics, positions=ks)
+
 bics = [trainer.fit(n_classes=k).bic() for k in ks]
 best_k = ks[np.argmin(bics)]
+plt.figure()
+plt.plot(ks, bics)
 print "best k = %d" % best_k
-print "from BICs %s" % bics    
 
 # fit model
 trainer.fit(n_classes=best_k)
 
-# output
+# print to screen
 if args.type == 'gmm':
-    print trainer.means()
-    print trainer.sds()
+    print "means:", trainer.means()
+    print "sds:", trainer.sds()
+    
+# like R pairs, colored by predicted class label
+predicted_labels = trainer.predict()
+plt.figure()
+for iplot, xarr, yarr in trainer.pairs():
+    plt.subplot(trainer.n_features, trainer.n_features, iplot)
+    plt.scatter(xarr, yarr, c=predicted_labels, cmap=cm.Set1, vmax=8)
+#plt.show()
+
+# bar chart by source, colored by predicted class label
+plt.figure()
+bar_lefts = np.arange(trainer.n_classes)
+for isource in range(trainer.n_sources):
+    predicted_labels_for_source = trainer.predict(isource)
+    predicted_counts = np.bincount(predicted_labels_for_source,
+                                   minlength=(trainer.n_sources))
+    plt.subplot(1, trainer.n_sources, isource+1)
+    patches = plt.bar(bar_lefts, predicted_counts)
+    for ibar in range(len(bar_lefts)):
+        patches[ibar].set_facecolor(cm.Set1(ibar/8.0))
+    plt.xlim([bar_lefts[0], bar_lefts[-1]+1])
+plt.show()
         
 # end timer
 end = time.time()

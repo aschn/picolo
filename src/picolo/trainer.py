@@ -137,10 +137,6 @@ class Trainer:
         """ Get model-specific parameters """
         pass
     
-    def set_params(self, **params):
-        """ Set model-specific parameters """
-        pass        
-    
     def fit(self, data_id=None, n_classes=None):
         """ Fit the model using the loaded data. 
         
@@ -239,6 +235,84 @@ class Trainer:
                 iplot += 1
                 if ix != iy:
                     yield iplot, self._X[:,ix], self._X[:,iy]
+                    
+    def bootstrap(self, n_reps, n_classes=None, labels_true=None,
+                  seed=None):
+        """ Generate n_reps models by fitting to bootstrapped data.
+            Classes are matched to the given labels, or to the predicted
+                labels on the complete dataset if no labels are given.
+        
+        @param n_reps Number of times to bootstrap
+        
+        @param n_classes Number of classes in fitted model; 
+            if None, use default
+            
+        @param labels_true Optional ndarray of class labels, length n_rows
+            
+        @param seed Optional number for seeding rng (only use for testing)            
+            
+        @retval models fitted with bootstrapped data
+
+        @retval data_ids Ndarray of indices for selected rows
+            
+        """
+        # set up storage
+        if not n_classes:
+            n_classes = self.n_classes
+        if (not self._classifier) or (n_classes != self.n_classes):
+            self.fit(n_classes=n_classes)
+        if seed is not None:
+            np.random.seed(seed)
+        params_permut = np.zeros_like(self.get_params())
+        
+        # set up target labels
+        if labels_true is not None: # check given labels
+            if labels_true.size != self._X.shape[0]:
+                raise ValueError("Got %d labels but expected %d." % (labels_true.size,
+                                                                     self._X.shape[0]))
+            if not np.all(np.unique(labels_true) == np.arange(n_classes)):
+                raise ValueError("Labels have %d classes but expected %d." % (np.unique(labels_true).size,
+                                                                              n_classes))
+        else: # get labels from raw data
+            self.fit(n_classes=n_classes)
+            labels_true = self.predict()
+            
+        # do n reps of bootstrapping
+        for irep in range(n_reps):
+            # sample rows
+            bootstrap_inds = np.random.randint(self._X.shape[0],
+                                               size=self._X.shape[0])
+            # get fitted labels
+            self.fit(data_id=bootstrap_inds, n_classes=n_classes)
+            labels_boot = self.predict()
+            
+            # find best permutation of labels to match expected labels
+            best_permut = None
+            best_error = np.Inf
+            for permut in itertools.permutations(range(n_classes)):
+                # permute labels
+                labels_permut = [permut[l] for l in labels_boot]
+                
+                # get error
+                is_misclassified = labels_permut != labels_true
+                error = np.count_nonzero(is_misclassified)
+                
+                # save if better than previous error
+                if error < best_error:
+                    best_error = error
+                    best_permut = permut
+                if best_error == 0:
+                    break
+                
+            # store params using permuted labels
+            params = self.get_params()
+            for iclass in range(n_classes):
+                params_permut[best_permut[iclass]] = params[iclass]
+            self.set_params(params=params_permut)
+            
+            # return
+            yield self, bootstrap_inds
+            
     
 class GMMTrainer(Trainer):
     """ Trainer for a Gaussian mixture model.
@@ -304,19 +378,31 @@ class GMMTrainer(Trainer):
             as (n_classes, n_features) ndarray. """
         return np.sqrt(self._classifier.covars_)
  
-    def aic(self):
-        """ Returns the AIC of the fitted model. """
+    def aic(self, data_id=None):
+        """ Returns the Akaike Information Criterion of the fitted model.  
+        
+        @param data_id portion of loaded data to use
+        
+        @retval aic Number for AIC
+        
+        """
         if self._classifier is None:
             raise RuntimeError("Must fit Trainer before getting AIC.")
         else:
-            return self._classifier.aic(self._X)
+            return self._classifier.aic(self._filter_X(data_id))
 
-    def bic(self):
-        """ Returns the BIC of the fitted model. """
+    def bic(self, data_id=None):
+        """ Returns the Bayes Information Criterion of the fitted model.  
+        
+        @param data_id portion of loaded data to use
+        
+        @retval bic Number for BIC
+
+        """
         if self._classifier is None:
             raise RuntimeError("Must fit Trainer before getting BIC.")
         else:
-            return self._classifier.bic(self._X)
+            return self._classifier.bic(self._filter_X(data_id))
         
     def get_params(self):
         """ Get means and standard deviations of Gaussians.
@@ -347,97 +433,7 @@ class GMMTrainer(Trainer):
         if sds is not None:
             self._classifier.covars_ = np.square(sds)
     
-    def bootstrap_fit(self, n_reps, n_classes=None, labels_true=None,
-                      seed=None):
-        """ Estimate model parameters by fitting to bootstrapped data.
-            Classes are matched to the given labels, or to the predicted
-                labels on the complete dataset if no labels are given.
-            95% confidence intervals assume normal distributions.
-        
-        @param n_reps Number of times to bootstrap
-        
-        @param n_classes Number of classes in fitted model; 
-            if None, use default
-            
-        @param labels_true Optional ndarray of class labels, length n_rows
-            
-        @param seed Optional number for seeding rng (only use for testing)            
-            
-        @retval means_est n_classes x n_features ndarray,
-            means_est[iclass, ifeat] = estimated value of mu
-            
-        @retval sds_est n_classes x n_features ndarray,
-            sds_est[iclass, ifeat] = estimated value of SD
-            
-        @retval means_CI n_classes x n_features ndarray,
-            means_CI[iclass, ifeat] = 95% confidence interval of mu
-            
-        @retval sds_CI n_classes x n_features ndarray,
-            sds_CI[iclass, ifeat] = 95% confidence interval of SD
-            
-        """
-        # set up storage
-        if not n_classes:
-            n_classes = self.n_classes
-        means_sampled = np.zeros([n_reps, n_classes, self.n_features])
-        sds_sampled = np.zeros([n_reps, n_classes, self.n_features])
-        if seed is not None:
-            np.random.seed(seed)
-        
-        # set up target labels
-        if labels_true is not None: # check given labels
-            if labels_true.size != self._X.shape[0]:
-                raise ValueError("Got %d labels but expected %d." % (labels_true.size,
-                                                                     self._X.shape[0]))
-            if not np.all(np.unique(labels_true) == np.arange(n_classes)):
-                raise ValueError("Labels have %d classes but expected %d." % (np.unique(labels_true).size,
-                                                                              n_classes))
-        else: # get labels from raw data
-            self.fit(n_classes=n_classes)
-            labels_true = self.predict()
-            
-        # do n reps of bootstrapping
-        for irep in range(n_reps):
-            # sample rows
-            bootstrap_inds = np.random.randint(self._X.shape[0],
-                                               size=self._X.shape[0])
-            # get fitted labels
-            self.fit(data_id=bootstrap_inds, n_classes=n_classes)
-            labels_boot = self.predict()
-            
-            # find best permutation of labels to match expected labels
-            best_permut = None
-            best_error = np.Inf
-            for permut in itertools.permutations(range(n_classes)):
-                # permute labels
-                labels_permut = [permut[l] for l in labels_boot]
-                
-                # get error
-                is_misclassified = labels_permut != labels_true
-                error = np.count_nonzero(is_misclassified)
-                
-                # save if better than previous error
-                if error < best_error:
-                    best_error = error
-                    best_permut = permut
-                if best_error == 0:
-                    break
-                
-            # store params using permuted labels
-            means = self.means()
-            sds = self.sds()
-            for iclass in range(n_classes):
-                means_sampled[irep, best_permut[iclass]] = means[iclass]
-                sds_sampled[irep, best_permut[iclass]] = sds[iclass]
-            
-        # reduce along n_reps axis
-        means_est = np.mean(means_sampled, axis=0)
-        sds_est = np.mean(sds_sampled, axis=0)
-        coef_CI = 1.96
-        means_CI = np.std(means_sampled, axis=0, ddof=1) * coef_CI
-        sds_CI = np.std(sds_sampled, axis=0, ddof=1) * coef_CI
-        return means_est, sds_est, means_CI, sds_CI
-                   
+                  
 class SVMTrainer(Trainer):
     """ Trainer for a Support Vector Machine.
         This is a wrapper around sklearn.svm.LinearSVC
