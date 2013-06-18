@@ -92,10 +92,12 @@ class TestTrainer:
         
     def test_pairs(self):
         self.trainer_default.load(self.features)
-        for iplot, xarr, yarr in self.trainer_default.pairs():
-            iy = (iplot-1) / self.trainer_default.n_features 
+        for iplot, ix, xarr, iy, yarr in self.trainer_default.pairs():
+            iy_expected = (iplot-1) / self.trainer_default.n_features 
+            nose.tools.assert_equal(iy_expected, iy)
             nose.tools.assert_true(np.all(self.features[:,iy] == yarr))
-            ix = (iplot-1) % self.trainer_default.n_features
+            ix_expected = (iplot-1) % self.trainer_default.n_features
+            nose.tools.assert_equal(ix_expected, ix)
             nose.tools.assert_true(np.all(self.features[:,ix] == xarr))
         
         
@@ -232,7 +234,7 @@ class TestGMMTrainer:
         expected = np.count_nonzero(pred_labels) / float(pred_labels.size)
         nose.tools.assert_almost_equal(accuracy, expected)
 
-    def test_bootstrap_gmm(self):
+    def test_bootstrap_fit_gmm(self):
         self.trainer_gmm.load(self.features)
         self.trainer_gmm.fit(n_classes=2)
         means_expect = self.trainer_gmm.means()
@@ -240,7 +242,7 @@ class TestGMMTrainer:
         n_reps = 100
         means_boot = np.zeros([n_reps, 2, self.trainer_gmm.n_features])
         sds_boot = np.zeros([n_reps, 2, self.trainer_gmm.n_features])
-        bootstrap_generator = self.trainer_gmm.bootstrap(n_reps=n_reps, n_classes=2,
+        bootstrap_generator = self.trainer_gmm.bootstrap_fit(n_reps=n_reps, n_classes=2,
                                               labels_true=self.trainer_gmm.predict(),
                                               seed=1)
         for irep, (model, inds) in enumerate(bootstrap_generator):
@@ -252,7 +254,19 @@ class TestGMMTrainer:
         sds_CI = np.std(sds_boot, axis=0, ddof=1) * 1.96
         nose.tools.assert_true(np.all((means_CI - np.abs(means_est - means_expect)) / means_CI > 0.5))
         nose.tools.assert_true(np.all((sds_CI - np.abs(sds_est - sds_expect)) / sds_CI > 0.5))
-        
+
+    def test_bootstrap_select_gmm(self):
+        self.trainer_gmm.load(self.features)
+        n_reps = 100
+        ks = range(1,4)
+        bootstrap_generator = self.trainer_gmm.bootstrap_select(n_reps, ks)
+        count = 0
+        for best_k, bics in bootstrap_generator:
+            best_ik_k = ks.index(best_k)
+            best_ik_bic = np.argmin(bics)
+            nose.tools.assert_equal(best_ik_k, best_ik_bic)
+            count += 1
+        nose.tools.assert_equal(count, n_reps)
         
 class TestSVMTrainer:
                                                                         

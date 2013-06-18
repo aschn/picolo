@@ -224,8 +224,12 @@ class Trainer:
         
         @retval iplot Number for plt.subplot(trainer.n_features, trainer.n_features, iplot)
         
+        @retval ix Number for index of x variable
+        
         @retval xarr Nx1 ndarray of numbers of x values
         
+        @retval iy Number for index of y variable
+
         @retval yarr Nx1 ndarray of numbers of y values
         
         """
@@ -234,9 +238,9 @@ class Trainer:
             for ix in range(self.n_features):
                 iplot += 1
                 if ix != iy:
-                    yield iplot, self._X[:,ix], self._X[:,iy]
+                    yield iplot, ix, self._X[:,ix], iy, self._X[:,iy]
                     
-    def bootstrap(self, n_reps, n_classes=None, labels_true=None,
+    def bootstrap_fit(self, n_reps, n_classes=None, labels_true=None,
                   seed=None):
         """ Generate n_reps models by fitting to bootstrapped data.
             Classes are matched to the given labels, or to the predicted
@@ -312,6 +316,45 @@ class Trainer:
             
             # return
             yield self, bootstrap_inds
+
+    def bootstrap_select(self, n_reps, ks, seed=None):
+        """ Generate n_reps models by fitting to bootstrapped data
+            and selecting the best model out of n_classes using BIC.
+        
+        @param n_reps Number of times to bootstrap
+        
+        @param ks Iterable of numbers of classes to select from
+                        
+        @param seed Optional number for seeding rng (only use for testing)            
+            
+        @retval best_ks Numbers of classes in the selected models
+
+        @retval bics Numbers for BICs of all models
+            
+        """
+        # set up storage
+        if len(ks) == 0:
+            raise ValueError("n_classes must contain at least 1 value of k.")
+        if seed is not None:
+            np.random.seed(seed)
+            
+        # do n reps of bootstrapping
+        for irep in range(n_reps):
+            # sample rows
+            bootstrap_inds = np.random.randint(self._X.shape[0],
+                                               size=self._X.shape[0])
+            # get BIC for each k
+            bics = np.zeros(len(ks))
+            for ik, k in enumerate(ks):
+                self.fit(data_id=bootstrap_inds, n_classes=k)
+                bics[ik] = self.bic(bootstrap_inds)
+                
+            # best BIC is min
+            best_ik = np.argmin(bics)
+            best_k = ks[best_ik]
+
+            # return
+            yield best_k, bics
             
     
 class GMMTrainer(Trainer):
