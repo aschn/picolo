@@ -388,6 +388,9 @@ class UnitCellShape(Shape):
             else:
                 self.put_param('is_valid', False)
         except KeyError:
+            self.put_component('a', None)
+            self.put_component('b', None)
+            self.put_component('degrees', None)
             self.put_param('is_valid', False)
 
         # if not set, use hard-coded default params for computing unit cells
@@ -558,7 +561,7 @@ class UnitCellShape(Shape):
         else:
             return 0.0
                     
-def shape_factory_from_values(shape_type, variables, vals, optdata=dict()):
+def shape_factory_from_values(shape_type, variables=[], vals=[], optdata=dict()):
     """ Factory function to create a shape given variable names and values.
         Valid types must contain the substrings 'UnitCell', 'Fourier',
         'Zernike', or 'Generic' (case insensitive).
