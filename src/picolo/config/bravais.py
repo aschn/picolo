@@ -7,7 +7,6 @@
 
 # import from standard library
 import itertools
-import logging
 
 # import external packages
 import numpy as np
@@ -31,9 +30,9 @@ class BravaisLattice:
         
         @param coord_pairs Nx2 ndarray of x,y coords
 
-        @param kl_pairs Ndarray of k,l pairs, eg from BravaisLattice.kl_pairs()
-        
         @param rcut_sq Number for squared distance cutoff
+
+        @param kl_pairs Ndarray of k,l pairs, eg from BravaisLattice.kl_pairs()
                     
         @retval error
             
@@ -179,7 +178,7 @@ class BravaisLattice:
                 # check for best fit lattice
                 if opt_error < best_error - 1e6:
                     best_error = opt_error
-                    best_bravais = self.expand(*opt_xy_tuple, n_kls=n_kls)
+                    best_bravais = self.expand(*opt_xy_tuple, n_kls=n_kls)                    
                     break
                 
         return best_bravais, best_error
