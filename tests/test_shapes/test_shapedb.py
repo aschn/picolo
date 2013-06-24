@@ -17,7 +17,8 @@ class TestShapeDB:
     def setup(self):
         logging.basicConfig(level=logging.DEBUG)
         self.db_default = ShapeDB()
-        self.s = shape_factory_from_values('generic', ['a'], [2])
+        self.s = shape_factory_from_values('generic', ['a'], [2],
+                                           {'int':4, 'str':'b', 'csv':[1,3,6]})
         self.db_one = ShapeDB()
         self.db_one.add('test', self.s)
         

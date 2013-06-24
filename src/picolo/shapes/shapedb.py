@@ -8,6 +8,7 @@
 # import from standard library
 import xml.dom.minidom as dom
 import xml.etree.ElementTree as ET
+import collections
 
 # import modules in this package
 from shapes import shape_factory_from_values
@@ -267,20 +268,21 @@ class ShapeDB:
             # check type of variable
             if isinstance(val, bool):
                 child = ET.Element('boolvar')
-                child.set('type', str(var))
             elif isinstance(val, int) or isinstance(val, float):
                 child = ET.Element('floatvar')
-                child.set('type', str(var))
             elif isinstance(val, str):
                 child = ET.Element('textvar')
-                child.set('type', str(var))
+            elif isinstance(val, collections.Iterable):
+                child = ET.Element('csvvar')
+                val = ','.join([str(v) for v in val])
             else:
                 msg = 'Parameter %s of shape %s is %s. ' % (str(var), name,
-                                                            type(var))
-                msg += 'Should a number or string.'
-                raise TypeError()
+                                                            type(val))
+                msg += 'Should a bool, number, string, or iterable.'
+                raise TypeError(msg)
                 
             # finish making element
+            child.set('type', str(var))
             child.text = str(val)
             elt.append(child)
                 
