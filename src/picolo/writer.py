@@ -285,7 +285,7 @@ class Writer:
         header += ["fraction particles in shape %s" % sn for sn in self.matcher.shapes.names()]
         
         # write
-        success = self._write_csv(fname, row, header=header, append=True)
+        success = self._write_csv(fname, [row], header=header, append=True)
         
         # finish
         if success:
@@ -337,7 +337,7 @@ class Writer:
         header += ["fraction area in shape %s" % sn for sn in self.matcher.shapes.names()]
 
         # write
-        success = self._write_csv(fname, row, header=header, append=True)
+        success = self._write_csv(fname, [row], header=header, append=True)
         
         # finish
         if success:

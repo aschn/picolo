@@ -16,6 +16,7 @@ import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.mixture import GMM
 from sklearn.cross_validation import StratifiedKFold
+from sklearn import metrics
 
 class Trainer:
     """ Base class for training classifiers
@@ -100,6 +101,12 @@ class Trainer:
         @param y_vals Nx1 ndarray of observation data, optional
             
         """
+        # check for nans and infs
+        isfinite = np.isfinite(x_vals)
+        if not np.all(isfinite):
+            rows_w_error = np.where(np.logical_not(np.all(isfinite, axis=1)))
+            raise ValueError("Invalid values found in rows %s" % rows_w_error)
+        
         # process observation vector
         if y_vals is not None:
             # test for vector
@@ -137,6 +144,9 @@ class Trainer:
         """ Get model-specific parameters """
         pass
     
+    def set_params(self, params=None):
+        pass
+    
     def fit(self, data_id=None, n_classes=None):
         """ Fit the model using the loaded data. 
         
@@ -162,6 +172,32 @@ class Trainer:
         else:
             return self._classifier.predict(self._filter_X(data_id))                
     
+    def aic(self, data_id=None):
+        """ Returns the Akaike Information Criterion of the fitted model.  
+        
+        @param data_id portion of loaded data to use
+        
+        @retval aic Number for AIC
+        
+        """
+        if self._classifier is None:
+            raise RuntimeError("Must fit Trainer before getting AIC.")
+        else:
+            return self._classifier.aic(self._filter_X(data_id))
+
+    def bic(self, data_id=None):
+        """ Returns the Bayes Information Criterion of the fitted model.  
+        
+        @param data_id portion of loaded data to use
+        
+        @retval bic Number for BIC
+
+        """
+        if self._classifier is None:
+            raise RuntimeError("Must fit Trainer before getting BIC.")
+        else:
+            return self._classifier.bic(self._filter_X(data_id))
+        
     def accuracy(self, data_id=None):
         """ Get fraction of correct predictions of fitted (supervised) model.
         
@@ -217,7 +253,7 @@ class Trainer:
         @retval shapes List of Shapes, length n_classes
         
         """
-        pass
+        return []
     
     def pairs(self):
         """ Generator to yield data to make plot like R pairs.
@@ -239,6 +275,18 @@ class Trainer:
                 iplot += 1
                 if ix != iy:
                     yield iplot, ix, self._X[:,ix], iy, self._X[:,iy]
+                    
+    def confusion_matrix(self, labels_true):
+        """ Return confusion matrix between fitted model and given labels.
+
+        @param labels_true Nx1 ndarray of 'true' labels
+
+        @retval conf_matrix [n_classes, n_classes] ndarray where
+            conf_matrix[i,j] is number of points in class i of given labels
+                and in class j of fitted model
+        
+        """
+        return metrics.confusion_matrix(labels_true, self.predict())   
                     
     def bootstrap_fit(self, n_reps, n_classes=None, labels_true=None,
                   seed=None):
@@ -421,32 +469,6 @@ class GMMTrainer(Trainer):
             as (n_classes, n_features) ndarray. """
         return np.sqrt(self._classifier.covars_)
  
-    def aic(self, data_id=None):
-        """ Returns the Akaike Information Criterion of the fitted model.  
-        
-        @param data_id portion of loaded data to use
-        
-        @retval aic Number for AIC
-        
-        """
-        if self._classifier is None:
-            raise RuntimeError("Must fit Trainer before getting AIC.")
-        else:
-            return self._classifier.aic(self._filter_X(data_id))
-
-    def bic(self, data_id=None):
-        """ Returns the Bayes Information Criterion of the fitted model.  
-        
-        @param data_id portion of loaded data to use
-        
-        @retval bic Number for BIC
-
-        """
-        if self._classifier is None:
-            raise RuntimeError("Must fit Trainer before getting BIC.")
-        else:
-            return self._classifier.bic(self._filter_X(data_id))
-        
     def get_params(self):
         """ Get means and standard deviations of Gaussians.
         

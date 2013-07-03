@@ -2,7 +2,10 @@
 <data classifier-type="default" shape-type="Generic">
 	<class-shape name="test">
 		<component type="a">2.0</component>
+		<floatvar type="int">4</floatvar>
 		<boolvar type="is_valid">True</boolvar>
+		<csvvar type="csv">1,3,6</csvvar>
 		<textvar type="type">Generic</textvar>
+		<textvar type="str">b</textvar>
 	</class-shape>
 </data>

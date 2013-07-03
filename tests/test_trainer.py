@@ -36,7 +36,12 @@ class TestTrainer:
         nose.tools.assert_equal(self.trainer_default.n_sources, 0)
         nose.tools.assert_equal(self.trainer_default.n_features, 0)
         nose.tools.assert_equal(self.trainer_default.n_classes, None)
-                
+        
+    @nose.tools.raises(ValueError)        
+    def test_load_invalid(self):
+        self.features[0,1] = np.nan
+        self.trainer_default.load(self.features)
+
     def test_load_unsupervised_first(self):
         self.trainer_default.load(self.features)
         nose.tools.assert_equal(self.trainer_default._X.size,
@@ -295,10 +300,10 @@ class TestSVMTrainer:
         self.trainer_svm.fit()
         shapes = self.trainer_svm.params_as_shapes(self.template_shape)
         nose.tools.assert_equal(len(shapes), 1)
-        nose.tools.assert_almost_equal(shapes[0].get('a'), 0.0088578582091631101)
-        nose.tools.assert_almost_equal(shapes[0].get('b'), 0.011840954483356043)
-        nose.tools.assert_almost_equal(shapes[0].get('degrees'), 0.029408398826550369)
-        nose.tools.assert_almost_equal(shapes[0].get('intercept'), -0.997138, places=5)        
+        nose.tools.assert_almost_equal(shapes[0].get('a'), 0.0097909, places=5)
+        nose.tools.assert_almost_equal(shapes[0].get('b'), 0.0109956, places=5)
+        nose.tools.assert_almost_equal(shapes[0].get('degrees'), 0.032635, places=5)
+        nose.tools.assert_almost_equal(shapes[0].get('intercept'), -0.997127, places=3)        
 
     def test_fit_svm_2(self):
         self.trainer_svm.load(self.features, self.ys)

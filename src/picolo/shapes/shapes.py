@@ -394,11 +394,14 @@ class UnitCellShape(Shape):
             self.put_param('is_valid', False)
 
         # if not set, use hard-coded default params for computing unit cells
-        defaults = {'min_dist': 14.0, 'max_dist': self.get('neighbor_dist'),
-                    'min_error': 0.2, 'r_cut': 7.0,
+        defaults = {'min_dist': 14.0,
+                    'max_dist': self.get('neighbor_dist'),
+                    'min_error': 0.2,
+                    'r_cut': 7.0,
                     'target_angle': math.radians(75.0),
                     'max_angle': math.radians(120.0),
-                    'min_angle': math.radians(50.0)
+                    'min_angle': math.radians(50.0),
+                    'ab_error': 1.0,
                     }
         for k, v in defaults.iteritems():
             try:
@@ -467,12 +470,13 @@ class UnitCellShape(Shape):
             a, b, degrees = self._bravais_to_unit_cell(bravais)
         except:
             coord_string = "\n\t".join([repr(coord) for coord in coords_in_range])
-            raise RuntimeWarning('no unit cell for coords:\n\t%s' % coord_string)
+            logging.warn('no unit cell for coords:\n\t%s' % coord_string)
             self.invalidate()
             return
                 
         # plot
         if do_plot:
+            print error, a, b, degrees
             plt.scatter([cp.x for cp in coords_in_range],
                         [cp.y for cp in coords_in_range], c='r', s=70)
             plt.title(repr(error))
@@ -510,8 +514,9 @@ class UnitCellShape(Shape):
                     # enforce a<=b
                     a = bravais[ia].r
                     b = bravais[ib].r
-                    if ( (a > b) or (a < self.get('min_dist')) or
-                        (b > self.get('max_dist')) ):
+                    if ( (a > b + self.get('ab_error')) or
+                         (a - self.get('min_dist') < 1e-6) or
+                         (self.get('max_dist') - b < 1e-6) ):
                         continue
                     
                     # get angle, in range (0,2*pi)
