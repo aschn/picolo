@@ -33,6 +33,13 @@ class TestShapeDB:
     def test_getitem(self):
         self.db_default['test']
         
+    def test_iter(self):
+        sdb = ShapeDB('tests/data/sample_db_in.xml')
+        sdb.add('test2', self.s)
+        shape_list = [s for s in sdb]
+        nose.tools.assert_equal(shape_list[0], sdb['test'])
+        nose.tools.assert_equal(shape_list[1], self.s)
+        
     def test_add(self):
         self.db_default.add('test', self.s)
         nose.tools.assert_equal(len(self.db_default), 1)

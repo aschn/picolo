@@ -72,6 +72,10 @@ class ShapeDB:
     def __len__(self):
         return len(self._data)
         
+    def __iter__(self):
+        for sn in self.names():
+            yield self[sn]
+        
     def names(self):
         """ Returns a list of strings of valid shape names.
         """
