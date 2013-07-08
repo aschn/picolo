@@ -34,6 +34,7 @@ class TestTrainer:
         nose.tools.assert_equal(self.trainer_default._y.size, 0)
         nose.tools.assert_equal(self.trainer_default.algorithm, 'none')
         nose.tools.assert_equal(self.trainer_default.n_sources, 0)
+        nose.tools.assert_equal(self.trainer_default.n_points, 0)
         nose.tools.assert_equal(self.trainer_default.n_features, 0)
         nose.tools.assert_equal(self.trainer_default.n_classes, None)
         
@@ -48,6 +49,8 @@ class TestTrainer:
                                 self.features.size)
         nose.tools.assert_equal(self.trainer_default._y.size, 0)
         nose.tools.assert_equal(self.trainer_default.n_sources, 1)
+        nose.tools.assert_equal(self.trainer_default.n_points,
+                                self.features.shape[0]) 
         nose.tools.assert_equal(self.trainer_default.n_features,
                                 self.features.shape[1]) 
         
@@ -58,6 +61,8 @@ class TestTrainer:
                                 self.features.size*2)
         nose.tools.assert_equal(self.trainer_default._y.size, 0)
         nose.tools.assert_equal(self.trainer_default.n_sources, 2)
+        nose.tools.assert_equal(self.trainer_default.n_points,
+                                self.features.shape[0]*2) 
         nose.tools.assert_equal(self.trainer_default.n_features,
                                 self.features.shape[1]) 
         
@@ -82,6 +87,13 @@ class TestTrainer:
     def test_load_xcols_error(self):
         self.trainer_default.load(self.features)
         self.trainer_default.load(self.features[:,0])
+        
+    def test_clear(self):
+        self.trainer_default.load(self.features, np.ones(self.n))
+        self.trainer_default.clear()
+        nose.tools.assert_equal(self.trainer_default.n_sources, 0)
+        nose.tools.assert_equal(self.trainer_default.n_features, 0)
+        nose.tools.assert_equal(self.trainer_default.n_points, 0)
         
     @nose.tools.raises(RuntimeError)
     def test_predict_default(self):

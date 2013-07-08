@@ -57,6 +57,14 @@ class Trainer:
             return self._X.shape[1]
         except IndexError:
             return 0
+
+    @property
+    def n_points(self):
+        """ Number of data points, ie rows in the design matrix. """
+        try:
+            return self._X.shape[0]
+        except IndexError:
+            return 0
                     
     @property
     def algorithm(self):
@@ -139,7 +147,13 @@ class Trainer:
         # append data sources
         ids = np.ones(x_vals.shape[0]) * self.n_sources
         self._data_sources = np.hstack((self._data_sources, ids))
-    
+        
+    def clear(self):
+        """"Drop all data from X and y"""
+        self._X = np.array([], dtype=np.float)
+        self._y = np.array([], dtype=np.int)
+        self._data_sources = np.array([], dtype=np.int)
+        
     def get_params(self):
         """ Get model-specific parameters """
         pass
@@ -319,9 +333,9 @@ class Trainer:
         
         # set up target labels
         if labels_true is not None: # check given labels
-            if labels_true.size != self._X.shape[0]:
+            if labels_true.size != self.n_points:
                 raise ValueError("Got %d labels but expected %d." % (labels_true.size,
-                                                                     self._X.shape[0]))
+                                                                     self.n_points))
             if not np.all(np.unique(labels_true) == np.arange(n_classes)):
                 raise ValueError("Labels have %d classes but expected %d." % (np.unique(labels_true).size,
                                                                               n_classes))
@@ -332,8 +346,8 @@ class Trainer:
         # do n reps of bootstrapping
         for irep in range(n_reps):
             # sample rows
-            bootstrap_inds = np.random.randint(self._X.shape[0],
-                                               size=self._X.shape[0])
+            bootstrap_inds = np.random.randint(self.n_points,
+                                               size=self.n_points)
             # get fitted labels
             self.fit(data_id=bootstrap_inds, n_classes=n_classes)
             labels_boot = self.predict()
@@ -389,8 +403,8 @@ class Trainer:
         # do n reps of bootstrapping
         for irep in range(n_reps):
             # sample rows
-            bootstrap_inds = np.random.randint(self._X.shape[0],
-                                               size=self._X.shape[0])
+            bootstrap_inds = np.random.randint(self.n_points,
+                                               size=self.n_points)
             # get BIC for each k
             bics = np.zeros(len(ks))
             for ik, k in enumerate(ks):
@@ -492,6 +506,9 @@ class GMMTrainer(Trainer):
         if params is not None:
             means = params[:,:,0]
             sds = params[:,:,1]
+            
+        if self._classifier is None:
+            self._classifier = GMM(1, covariance_type='diag')            
             
         if means is not None:
             self._classifier.means_ = means
