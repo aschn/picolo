@@ -1,14 +1,14 @@
 picolo
 =============
 
-A library for detecting and classifying local order in spatial data. picolo stands for Point-Intensity Classification Of Local Order.
+A library for detecting and classifying local order in spatial data. Picolo stands for Point-Intensity Classification Of Local Order.
 
 Background
 ----------
 
 Pattern detection in images is a common task in many fields, including nanoscience.
 For instance, there is a need for robust methods that can classify individual membrane proteins as "disordered" or "crystalline," whether the data source is atomic force micrographs, electron micrographs, or molecular simulation trajectories.
-picolo meets this need by providing Python tools for extracting features from local neighborhoods in (x,y) data sets (e.g., points picked from micrographs using other software), training and applying statistical classifiers on these features, and computing spatial correlation functions on the labeled data.
+Picolo meets this need by providing Python tools for extracting features from local neighborhoods in (x,y) data sets (e.g., points picked from micrographs using other software), training and applying statistical classifiers on these features, and computing spatial correlation functions on the labeled data.
 
 
 Contents
@@ -57,7 +57,7 @@ There are sample scripts in the <code>scripts</code> directory. Call any of the 
 Credits
 -------
 
-picolo is written and maintained by Anna Schneider <[annarschneider@gmail.com](mailto:annarschneider+github@gmail.com)>, and was tested on AFM data collected by Bibiana Onoa.
+Picolo is written and maintained by Anna Schneider <[annarschneider@gmail.com](mailto:annarschneider+github@gmail.com)>, and was tested on AFM data collected by Bibiana Onoa.
 
 
 License
